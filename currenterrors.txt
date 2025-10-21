@@ -1,64 +1,998 @@
-warning: trait `Softmax` is never used
- --> src/backend.rs:8:11
-  |
-8 | pub trait Softmax {
-  |           ^^^^^^^
-  |
-  = note: `#[warn(dead_code)]` on by default
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:210:21
+    |
+210 |         let alloc = vk::MemoryAllocateInfo {
+    |                     ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this module
+    |
+  2 + use ash::vk;
+    |
 
-warning: struct `CpuBackend` is never constructed
-  --> src/backend.rs:12:12
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:220:39
+    |
+220 |     fn write_buffer_bytes(&self, mem: vk::DeviceMemory, src: &[u8]) -> Result<()> {
+    |                                       ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this module
+    |
+  2 + use ash::vk;
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:222:72
+    |
+222 |             let ptr = self.device.map_memory(mem, 0, src.len() as u64, vk::MemoryMapFlags::empty())?;
+    |                                                                        ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::MemoryMapFlags;
+    |
+help: if you import `MemoryMapFlags`, refer to it directly
+    |
+222 -             let ptr = self.device.map_memory(mem, 0, src.len() as u64, vk::MemoryMapFlags::empty())?;
+222 +             let ptr = self.device.map_memory(mem, 0, src.len() as u64, MemoryMapFlags::empty())?;
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:229:45
+    |
+229 |     fn write_buffer_pod<T: Pod>(&self, mem: vk::DeviceMemory, data: &[T]) -> Result<()> {
+    |                                             ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this module
+    |
+  2 + use ash::vk;
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:275:30
+    |
+275 |             let alloc_info = vk::DescriptorSetAllocateInfo::builder()
+    |                              ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::DescriptorSetAllocateInfo;
+    |
+help: if you import `DescriptorSetAllocateInfo`, refer to it directly
+    |
+275 -             let alloc_info = vk::DescriptorSetAllocateInfo::builder()
+275 +             let alloc_info = DescriptorSetAllocateInfo::builder()
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:281:17
+    |
+281 |                 vk::DescriptorBufferInfo { buffer: buf_a, offset: 0, range: bytes_a },
+    |                 ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this module
+    |
+  2 + use ash::vk;
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:282:17
+    |
+282 |                 vk::DescriptorBufferInfo { buffer: buf_b, offset: 0, range: bytes_b },
+    |                 ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this module
+    |
+  2 + use ash::vk;
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:283:17
+    |
+283 |                 vk::DescriptorBufferInfo { buffer: buf_c, offset: 0, range: bytes_c },
+    |                 ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this module
+    |
+  2 + use ash::vk;
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:286:17
+    |
+286 |                 vk::WriteDescriptorSet {
+    |                 ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this module
+    |
+  2 + use ash::vk;
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:288:38
+    |
+288 |                     descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+    |                                      ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::DescriptorType;
+    |
+help: if you import `DescriptorType`, refer to it directly
+    |
+288 -                     descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+288 +                     descriptor_type: DescriptorType::STORAGE_BUFFER,
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:291:17
+    |
+291 |                 vk::WriteDescriptorSet {
+    |                 ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this module
+    |
+  2 + use ash::vk;
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:293:38
+    |
+293 |                     descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+    |                                      ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::DescriptorType;
+    |
+help: if you import `DescriptorType`, refer to it directly
+    |
+293 -                     descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+293 +                     descriptor_type: DescriptorType::STORAGE_BUFFER,
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:296:17
+    |
+296 |                 vk::WriteDescriptorSet {
+    |                 ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this module
+    |
+  2 + use ash::vk;
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:298:38
+    |
+298 |                     descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+    |                                      ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::DescriptorType;
+    |
+help: if you import `DescriptorType`, refer to it directly
+    |
+298 -                     descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+298 +                     descriptor_type: DescriptorType::STORAGE_BUFFER,
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:305:25
+    |
+305 |             let alloc = vk::CommandBufferAllocateInfo::builder()
+    |                         ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::CommandBufferAllocateInfo;
+    |
+help: if you import `CommandBufferAllocateInfo`, refer to it directly
+    |
+305 -             let alloc = vk::CommandBufferAllocateInfo::builder()
+305 +             let alloc = CommandBufferAllocateInfo::builder()
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:307:24
+    |
+307 |                 .level(vk::CommandBufferLevel::PRIMARY)
+    |                        ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::CommandBufferLevel;
+    |
+help: if you import `CommandBufferLevel`, refer to it directly
+    |
+307 -                 .level(vk::CommandBufferLevel::PRIMARY)
+307 +                 .level(CommandBufferLevel::PRIMARY)
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:311:25
+    |
+311 |             let begin = vk::CommandBufferBeginInfo::builder();
+    |                         ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::CommandBufferBeginInfo;
+    |
+help: if you import `CommandBufferBeginInfo`, refer to it directly
+    |
+311 -             let begin = vk::CommandBufferBeginInfo::builder();
+311 +             let begin = CommandBufferBeginInfo::builder();
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:317:54
+    |
+317 |                 self.device.cmd_write_timestamp(cmd, vk::PipelineStageFlags::TOP_OF_PIPE, self.query_pool, 0);
+    |                                                      ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::PipelineStageFlags;
+    |
+help: if you import `PipelineStageFlags`, refer to it directly
+    |
+317 -                 self.device.cmd_write_timestamp(cmd, vk::PipelineStageFlags::TOP_OF_PIPE, self.query_pool, 0);
+317 +                 self.device.cmd_write_timestamp(cmd, PipelineStageFlags::TOP_OF_PIPE, self.query_pool, 0);
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:320:52
+    |
+320 |                 self.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, self.pipeline);
+    |                                                    ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::PipelineBindPoint;
+    |
+help: if you import `PipelineBindPoint`, refer to it directly
+    |
+320 -                 self.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, self.pipeline);
+320 +                 self.device.cmd_bind_pipeline(cmd, PipelineBindPoint::COMPUTE, self.pipeline);
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:322:26
+    |
+322 |                     cmd, vk::PipelineBindPoint::COMPUTE, self.pipeline_layout, 0, &[desc_set], &[]);
+    |                          ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::PipelineBindPoint;
+    |
+help: if you import `PipelineBindPoint`, refer to it directly
+    |
+322 -                     cmd, vk::PipelineBindPoint::COMPUTE, self.pipeline_layout, 0, &[desc_set], &[]);
+322 +                     cmd, PipelineBindPoint::COMPUTE, self.pipeline_layout, 0, &[desc_set], &[]);
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:329:48
+    |
+329 |                     cmd, self.pipeline_layout, vk::ShaderStageFlags::COMPUTE,
+    |                                                ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::ShaderStageFlags;
+    |
+help: if you import `ShaderStageFlags`, refer to it directly
+    |
+329 -                     cmd, self.pipeline_layout, vk::ShaderStageFlags::COMPUTE,
+329 +                     cmd, self.pipeline_layout, ShaderStageFlags::COMPUTE,
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:336:54
+    |
+336 |                 self.device.cmd_write_timestamp(cmd, vk::PipelineStageFlags::BOTTOM_OF_PIPE, self.query_pool, 1);
+    |                                                      ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::PipelineStageFlags;
+    |
+help: if you import `PipelineStageFlags`, refer to it directly
+    |
+336 -                 self.device.cmd_write_timestamp(cmd, vk::PipelineStageFlags::BOTTOM_OF_PIPE, self.query_pool, 1);
+336 +                 self.device.cmd_write_timestamp(cmd, PipelineStageFlags::BOTTOM_OF_PIPE, self.query_pool, 1);
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:342:31
+    |
+342 |             let submit_info = vk::SubmitInfo::builder().command_buffers(&cmd_bufs);
+    |                               ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::SubmitInfo;
+    |
+help: if you import `SubmitInfo`, refer to it directly
+    |
+342 -             let submit_info = vk::SubmitInfo::builder().command_buffers(&cmd_bufs);
+342 +             let submit_info = SubmitInfo::builder().command_buffers(&cmd_bufs);
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:344:71
+    |
+344 |                 self.device.queue_submit(self.queue, &[*submit_info], vk::Fence::null())?;
+    |                                                                       ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::Fence;
+    |
+help: if you import `Fence`, refer to it directly
+    |
+344 -                 self.device.queue_submit(self.queue, &[*submit_info], vk::Fence::null())?;
+344 +                 self.device.queue_submit(self.queue, &[*submit_info], Fence::null())?;
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:353:21
+    |
+353 |                     vk::QueryResultFlags::TYPE_64 | vk::QueryResultFlags::WAIT,
+    |                     ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::QueryResultFlags;
+    |
+help: if you import `QueryResultFlags`, refer to it directly
+    |
+353 -                     vk::QueryResultFlags::TYPE_64 | vk::QueryResultFlags::WAIT,
+353 +                     QueryResultFlags::TYPE_64 | vk::QueryResultFlags::WAIT,
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:353:53
+    |
+353 |                     vk::QueryResultFlags::TYPE_64 | vk::QueryResultFlags::WAIT,
+    |                                                     ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::QueryResultFlags;
+    |
+help: if you import `QueryResultFlags`, refer to it directly
+    |
+353 -                     vk::QueryResultFlags::TYPE_64 | vk::QueryResultFlags::WAIT,
+353 +                     vk::QueryResultFlags::TYPE_64 | QueryResultFlags::WAIT,
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:362:69
+    |
+362 |                 let ptr = self.device.map_memory(mem_c, 0, bytes_c, vk::MemoryMapFlags::empty())?;
+    |                                                                     ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::MemoryMapFlags;
+    |
+help: if you import `MemoryMapFlags`, refer to it directly
+    |
+362 -                 let ptr = self.device.map_memory(mem_c, 0, bytes_c, vk::MemoryMapFlags::empty())?;
+362 +                 let ptr = self.device.map_memory(mem_c, 0, bytes_c, MemoryMapFlags::empty())?;
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:395:30
+    |
+395 |             let alloc_info = vk::DescriptorSetAllocateInfo::builder()
+    |                              ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::DescriptorSetAllocateInfo;
+    |
+help: if you import `DescriptorSetAllocateInfo`, refer to it directly
+    |
+395 -             let alloc_info = vk::DescriptorSetAllocateInfo::builder()
+395 +             let alloc_info = DescriptorSetAllocateInfo::builder()
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:401:17
+    |
+401 |                 vk::DescriptorBufferInfo { buffer: buf_a, offset: 0, range: bytes_a },
+    |                 ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this module
+    |
+  2 + use ash::vk;
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:402:17
+    |
+402 |                 vk::DescriptorBufferInfo { buffer: buf_b, offset: 0, range: bytes_b },
+    |                 ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this module
+    |
+  2 + use ash::vk;
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:403:17
+    |
+403 |                 vk::DescriptorBufferInfo { buffer: buf_c, offset: 0, range: bytes_c },
+    |                 ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this module
+    |
+  2 + use ash::vk;
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:406:17
+    |
+406 |                 vk::WriteDescriptorSet {
+    |                 ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this module
+    |
+  2 + use ash::vk;
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:408:38
+    |
+408 |                     descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+    |                                      ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::DescriptorType;
+    |
+help: if you import `DescriptorType`, refer to it directly
+    |
+408 -                     descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+408 +                     descriptor_type: DescriptorType::STORAGE_BUFFER,
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:411:17
+    |
+411 |                 vk::WriteDescriptorSet {
+    |                 ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this module
+    |
+  2 + use ash::vk;
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:413:38
+    |
+413 |                     descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+    |                                      ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::DescriptorType;
+    |
+help: if you import `DescriptorType`, refer to it directly
+    |
+413 -                     descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+413 +                     descriptor_type: DescriptorType::STORAGE_BUFFER,
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:416:17
+    |
+416 |                 vk::WriteDescriptorSet {
+    |                 ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this module
+    |
+  2 + use ash::vk;
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:418:38
+    |
+418 |                     descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+    |                                      ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::DescriptorType;
+    |
+help: if you import `DescriptorType`, refer to it directly
+    |
+418 -                     descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+418 +                     descriptor_type: DescriptorType::STORAGE_BUFFER,
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:424:25
+    |
+424 |             let alloc = vk::CommandBufferAllocateInfo::builder()
+    |                         ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::CommandBufferAllocateInfo;
+    |
+help: if you import `CommandBufferAllocateInfo`, refer to it directly
+    |
+424 -             let alloc = vk::CommandBufferAllocateInfo::builder()
+424 +             let alloc = CommandBufferAllocateInfo::builder()
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:426:24
+    |
+426 |                 .level(vk::CommandBufferLevel::PRIMARY)
+    |                        ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::CommandBufferLevel;
+    |
+help: if you import `CommandBufferLevel`, refer to it directly
+    |
+426 -                 .level(vk::CommandBufferLevel::PRIMARY)
+426 +                 .level(CommandBufferLevel::PRIMARY)
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:430:25
+    |
+430 |             let begin = vk::CommandBufferBeginInfo::builder();
+    |                         ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::CommandBufferBeginInfo;
+    |
+help: if you import `CommandBufferBeginInfo`, refer to it directly
+    |
+430 -             let begin = vk::CommandBufferBeginInfo::builder();
+430 +             let begin = CommandBufferBeginInfo::builder();
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:435:54
+    |
+435 |                 self.device.cmd_write_timestamp(cmd, vk::PipelineStageFlags::TOP_OF_PIPE, self.query_pool, 0);
+    |                                                      ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::PipelineStageFlags;
+    |
+help: if you import `PipelineStageFlags`, refer to it directly
+    |
+435 -                 self.device.cmd_write_timestamp(cmd, vk::PipelineStageFlags::TOP_OF_PIPE, self.query_pool, 0);
+435 +                 self.device.cmd_write_timestamp(cmd, PipelineStageFlags::TOP_OF_PIPE, self.query_pool, 0);
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:437:52
+    |
+437 |                 self.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, self.pipeline);
+    |                                                    ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::PipelineBindPoint;
+    |
+help: if you import `PipelineBindPoint`, refer to it directly
+    |
+437 -                 self.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, self.pipeline);
+437 +                 self.device.cmd_bind_pipeline(cmd, PipelineBindPoint::COMPUTE, self.pipeline);
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:439:26
+    |
+439 |                     cmd, vk::PipelineBindPoint::COMPUTE, self.pipeline_layout, 0, &[desc_set], &[]);
+    |                          ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::PipelineBindPoint;
+    |
+help: if you import `PipelineBindPoint`, refer to it directly
+    |
+439 -                     cmd, vk::PipelineBindPoint::COMPUTE, self.pipeline_layout, 0, &[desc_set], &[]);
+439 +                     cmd, PipelineBindPoint::COMPUTE, self.pipeline_layout, 0, &[desc_set], &[]);
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:446:48
+    |
+446 |                     cmd, self.pipeline_layout, vk::ShaderStageFlags::COMPUTE,
+    |                                                ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::ShaderStageFlags;
+    |
+help: if you import `ShaderStageFlags`, refer to it directly
+    |
+446 -                     cmd, self.pipeline_layout, vk::ShaderStageFlags::COMPUTE,
+446 +                     cmd, self.pipeline_layout, ShaderStageFlags::COMPUTE,
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:453:54
+    |
+453 |                 self.device.cmd_write_timestamp(cmd, vk::PipelineStageFlags::BOTTOM_OF_PIPE, self.query_pool, 1);
+    |                                                      ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::PipelineStageFlags;
+    |
+help: if you import `PipelineStageFlags`, refer to it directly
+    |
+453 -                 self.device.cmd_write_timestamp(cmd, vk::PipelineStageFlags::BOTTOM_OF_PIPE, self.query_pool, 1);
+453 +                 self.device.cmd_write_timestamp(cmd, PipelineStageFlags::BOTTOM_OF_PIPE, self.query_pool, 1);
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:458:31
+    |
+458 |             let submit_info = vk::SubmitInfo::builder().command_buffers(&cmd_bufs);
+    |                               ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::SubmitInfo;
+    |
+help: if you import `SubmitInfo`, refer to it directly
+    |
+458 -             let submit_info = vk::SubmitInfo::builder().command_buffers(&cmd_bufs);
+458 +             let submit_info = SubmitInfo::builder().command_buffers(&cmd_bufs);
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:460:71
+    |
+460 |                 self.device.queue_submit(self.queue, &[*submit_info], vk::Fence::null())?;
+    |                                                                       ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::Fence;
+    |
+help: if you import `Fence`, refer to it directly
+    |
+460 -                 self.device.queue_submit(self.queue, &[*submit_info], vk::Fence::null())?;
+460 +                 self.device.queue_submit(self.queue, &[*submit_info], Fence::null())?;
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:469:21
+    |
+469 |                     vk::QueryResultFlags::TYPE_64 | vk::QueryResultFlags::WAIT,
+    |                     ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::QueryResultFlags;
+    |
+help: if you import `QueryResultFlags`, refer to it directly
+    |
+469 -                     vk::QueryResultFlags::TYPE_64 | vk::QueryResultFlags::WAIT,
+469 +                     QueryResultFlags::TYPE_64 | vk::QueryResultFlags::WAIT,
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:469:53
+    |
+469 |                     vk::QueryResultFlags::TYPE_64 | vk::QueryResultFlags::WAIT,
+    |                                                     ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::QueryResultFlags;
+    |
+help: if you import `QueryResultFlags`, refer to it directly
+    |
+469 -                     vk::QueryResultFlags::TYPE_64 | vk::QueryResultFlags::WAIT,
+469 +                     vk::QueryResultFlags::TYPE_64 | QueryResultFlags::WAIT,
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `vk`
+   --> src/vk.rs:478:69
+    |
+478 |                 let ptr = self.device.map_memory(mem_c, 0, bytes_c, vk::MemoryMapFlags::empty())?;
+    |                                                                     ^^ use of unresolved module or unlinked crate `vk`
+    |
+help: to make use of source file src/vk.rs, use `mod vk` in this file to declare the module
+   --> src/main.rs:1:1
+    |
+  1 + mod vk;
+    |
+help: consider importing this struct
+    |
+  2 + use ash::vk::MemoryMapFlags;
+    |
+help: if you import `MemoryMapFlags`, refer to it directly
+    |
+478 -                 let ptr = self.device.map_memory(mem_c, 0, bytes_c, vk::MemoryMapFlags::empty())?;
+478 +                 let ptr = self.device.map_memory(mem_c, 0, bytes_c, MemoryMapFlags::empty())?;
+    |
+
+error[E0599]: no method named `push_next` found for struct `PhysicalDeviceFeatures2` in the current scope
+  --> src/vk.rs:55:14
    |
-12 | pub struct CpuBackend; // defined in cpu.rs (imported via crate::cpu::CpuBackend)
-   |            ^^^^^^^^^^
-
-warning: struct `VkBackend` is never constructed
-  --> src/backend.rs:13:12
+54 |           let mut feats2 = PhysicalDeviceFeatures2::default()
+   |  __________________________-
+55 | |             .push_next(&mut f16i8)
+   | |             -^^^^^^^^^ method not found in `PhysicalDeviceFeatures2`
+   | |_____________|
    |
-13 | pub struct VkBackend;  // defined in vk.rs  (imported via crate::vk::VkBackend)
-   |            ^^^^^^^^^
 
-warning: fields `entry` and `qf_index` are never read
-  --> src/vk.rs:16:5
+error[E0599]: no method named `push_next` found for struct `PhysicalDeviceFeatures2` in the current scope
+  --> src/vk.rs:76:14
    |
-15 | pub struct VkBackend {
-   |            --------- fields in this struct
-16 |     entry: Entry,
-   |     ^^^^^
-...
-21 |     qf_index: u32,
-   |     ^^^^^^^^
-
-warning: structure field `M` should have a snake case name
-  --> src/vk.rs:11:5
+75 |           let mut feats2_enable = PhysicalDeviceFeatures2::default()
+   |  _________________________________-
+76 | |             .push_next(&mut f16i8_enable)
+   | |             -^^^^^^^^^ method not found in `PhysicalDeviceFeatures2`
+   | |_____________|
    |
-11 |     M: u32, N: u32, K: u32,
-   |     ^ help: convert the identifier to snake case: `m`
-   |
-   = note: `#[warn(non_snake_case)]` on by default
 
-warning: structure field `N` should have a snake case name
-  --> src/vk.rs:11:13
-   |
-11 |     M: u32, N: u32, K: u32,
-   |             ^ help: convert the identifier to snake case: `n`
-
-warning: structure field `K` should have a snake case name
-  --> src/vk.rs:11:21
-   |
-11 |     M: u32, N: u32, K: u32,
-   |                     ^ help: convert the identifier to snake case (notice the capitalization): `k`
-
-warning: `pi5-llama` (bin "pi5-llama") generated 7 warnings
-
-
-thread 'main' panicked at /home/aczeidinski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bytemuck-1.24.0/src/internal.rs:33:3:
-cast_slice>TargetAlignmentGreaterAndInputNotAligned
-stack backtrace:
-   0: __rustc::rust_begin_unwind
-   1: core::panicking::panic_fmt
-   2: bytemuck::internal::something_went_wrong
-   3: pi5_llama::vk::VkBackend::new
-   4: pi5_llama::main
-note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
-
+Some errors have detailed explanations: E0412, E0432, E0433, E0599.
+For more information about an error, try `rustc --explain E0412`.
+error: could not compile `pi5-llama` (bin "pi5-llama") due to 102 previous errors
