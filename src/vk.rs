@@ -22,6 +22,7 @@ pub struct VkBackend {
     pipeline_layout: vk::PipelineLayout,
     pipeline: vk::Pipeline,
     cmd_pool: vk::CommandPool,
+    query_pool: vk::QueryPool,
     desc_set_layout: vk::DescriptorSetLayout,
     desc_pool: vk::DescriptorPool,
 }
@@ -122,6 +123,14 @@ impl VkBackend {
             .queue_family_index(qf_index)
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
         let cmd_pool = unsafe { device.create_command_pool(&pool_info, None)? };
+
+        // HELPER for a small query pool
+        let qp_info = vk::QueryPoolCreateInfo {
+            query_type: vk::QueryType::TIMESTAMP,
+            query_count: 2,
+            ..Default::default()
+        };
+        let query_pool = unsafe { device.create_query_pool(&qp_info, None)? };
 
         // Descriptor pool
         let pool_sizes = [vk::DescriptorPoolSize {
