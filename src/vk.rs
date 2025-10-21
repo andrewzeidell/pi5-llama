@@ -82,11 +82,23 @@ impl VkBackend {
 
         // Shader module
         // NOTE: SPIR-V must be 4-byte aligned; include_bytes! is fine and we cast safely.
-        let spirv_bytes: &[u8] = include_bytes!("../shaders/matmul_f32_t16x16.spv");
-        assert!(spirv_bytes.len() % 4 == 0, "SPIR-V must be multiple of 4 bytes");
-        let (head, words, tail) = unsafe { spirv_bytes.align_to::<u32>() };
-        assert!(head.is_empty() && tail.is_empty(), "SPIR-V slice not aligned to 4 bytes");
-        let sm_info = vk::ShaderModuleCreateInfo::builder().code(words);
+        // Shader module (load SPIR-V at runtime to avoid alignment issues on ARM)
+        use std::fs::File;
+        use std::io::Read;
+        
+        let mut file = File::open("shaders/matmul_f32_t16x16.spv")
+            .context("failed to open shader file")?;
+        let mut spirv_bytes = Vec::new();
+        file.read_to_end(&mut spirv_bytes)?;
+        assert!(spirv_bytes.len() % 4 == 0, "SPIR-V size not multiple of 4 bytes");
+        
+        let words: &[u32] = unsafe {
+            std::slice::from_raw_parts(
+                spirv_bytes.as_ptr() as *const u32,
+                spirv_bytes.len() / 4,
+            )
+        };
+        
         let sm_info = vk::ShaderModuleCreateInfo::builder().code(words);
         let shader_module = unsafe { device.create_shader_module(&sm_info, None)? };
 
