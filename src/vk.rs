@@ -58,6 +58,16 @@ impl VkBackend {
         unsafe { instance.get_physical_device_features2(phys, &mut feats2); }
         
         let use_f16 = f16i8.shader_float16 == vk::TRUE && s16.storage_buffer16_bit_access == vk::TRUE;
+        println!(
+            "Device reports: shaderFloat16={} storageBuffer16BitAccess={}",
+            if f16i8.shader_float16 == vk::TRUE { "YES" } else { "no" },
+            if s16.storage_buffer16_bit_access == vk::TRUE { "YES" } else { "no" }
+        );
+        println!(
+            "FP16 pipeline {}",
+            if use_f16 { "ENABLED ✅" } else { "NOT SUPPORTED ⚠️ (falling back to f32)" }
+        );
+
 
 
         let priorities = [1.0f32];
