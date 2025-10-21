@@ -1,7 +1,7 @@
 mod backend;
 mod cpu;
 mod vk;
-mod attn; // optional
+//mod attn; // optional
 
 use backend::{Backend, MatMul};
 use cpu::CpuBackend;
