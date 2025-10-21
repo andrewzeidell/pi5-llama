@@ -1,6 +1,11 @@
 // src/vk.rs
 use anyhow::{Context, Result};
-use ash::vk::{PhysicalDeviceFeatures2, PhysicalDeviceFloat16Int8Features, PhysicalDevice16BitStorageFeatures};
+use ash::{vk, Entry};
+use ash::vk::{
+    PhysicalDeviceFeatures2,
+    PhysicalDeviceFloat16Int8FeaturesKHR,
+    PhysicalDevice16BitStorageFeaturesKHR,
+};
 use half::f16;
 use bytemuck::{Pod, Zeroable};
 use std::{ffi::CString, mem::size_of};
@@ -49,15 +54,16 @@ impl VkBackend {
             .map(|(i, _)| i as u32)
             .context("no compute queue")?;
         // --- Query features we need for f16 SSBO + arithmetic ---
-        let mut f16i8 = PhysicalDeviceFloat16Int8Features::default();
-        let mut s16 = PhysicalDevice16BitStorageFeatures::default();
-        let mut feats2 = PhysicalDeviceFeatures2::default()
-            .push_next(&mut f16i8)
-            .push_next(&mut s16);
+        let mut f16i8 = vk::PhysicalDeviceFloat16Int8FeaturesKHR::default();
+        let mut s16 = vk::PhysicalDevice16BitStorageFeaturesKHR::default();
+        let mut feats2 = vk::PhysicalDeviceFeatures2::default();
+        feats2.p_next = (&mut f16i8 as *mut _) as *mut std::ffi::c_void;
+        f16i8.p_next = (&mut s16 as *mut _) as *mut std::ffi::c_void;
         
         unsafe { instance.get_physical_device_features2(phys, &mut feats2); }
         
         let use_f16 = f16i8.shader_float16 == vk::TRUE && s16.storage_buffer16_bit_access == vk::TRUE;
+
 
         let priorities = [1.0f32];
         let qinfo = [vk::DeviceQueueCreateInfo::builder()
@@ -66,17 +72,18 @@ impl VkBackend {
             .build()];
         
         // enable features via pNext chain
-        let mut f16i8_enable = PhysicalDeviceFloat16Int8Features {
-            shader_float16: vk::TRUE, ..Default::default()
+        let mut f16i8_enable = vk::PhysicalDeviceFloat16Int8FeaturesKHR {
+            shader_float16: vk::TRUE,
+            ..Default::default()
         };
-        let mut s16_enable = PhysicalDevice16BitStorageFeatures {
-            storage_buffer16_bit_access: vk::TRUE, ..Default::default()
+        let mut s16_enable = vk::PhysicalDevice16BitStorageFeaturesKHR {
+            storage_buffer16_bit_access: vk::TRUE,
+            ..Default::default()
         };
-        let mut feats2_enable = PhysicalDeviceFeatures2::default()
-            .push_next(&mut f16i8_enable)
-            .push_next(&mut s16_enable);
+        let mut feats2_enable = vk::PhysicalDeviceFeatures2::default();
+        feats2_enable.p_next = (&mut f16i8_enable as *mut _) as *mut std::ffi::c_void;
+        f16i8_enable.p_next = (&mut s16_enable as *mut _) as *mut std::ffi::c_void;
         
-        // If not supported, zero these so the driver ignores them
         if !use_f16 {
             f16i8_enable.shader_float16 = vk::FALSE;
             s16_enable.storage_buffer16_bit_access = vk::FALSE;
@@ -84,7 +91,8 @@ impl VkBackend {
         
         let dinfo = vk::DeviceCreateInfo::builder()
             .queue_create_infos(&qinfo)
-            .push_next(&mut feats2_enable);
+            .push_next(&mut feats2_enable); // this .push_next is fine (builder-level)
+
         
         let device = unsafe { instance.create_device(phys, &dinfo, None)? };
         let queue = unsafe { device.get_device_queue(qf_index, 0) };
