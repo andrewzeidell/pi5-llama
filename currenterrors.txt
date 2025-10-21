@@ -1,41 +1,72 @@
-error[E0432]: unresolved import `ash::vk::PhysicalDeviceFloat16Int8Features`
- --> src/vk.rs:4:40
+warning: unused imports: `PhysicalDevice16BitStorageFeaturesKHR`, `PhysicalDeviceFeatures2`, and `PhysicalDeviceFloat16Int8FeaturesKHR`
+ --> src/vk.rs:5:5
   |
-4 | use ash::vk::{PhysicalDeviceFeatures2, PhysicalDeviceFloat16Int8Features, PhysicalDevice16BitStorageFeatures};
-  |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  |                                        |
-  |                                        no `PhysicalDeviceFloat16Int8Features` in `vk`
-  |                                        help: a similar name exists in the module: `PhysicalDeviceFloat16Int8FeaturesKHR`
-
-error[E0599]: no method named `push_next` found for struct `PhysicalDeviceFeatures2` in the current scope
-  --> src/vk.rs:56:14
-   |
-55 |           let mut feats2 = PhysicalDeviceFeatures2::default()
-   |  __________________________-
-56 | |             .push_next(&mut f16i8)
-   | |             -^^^^^^^^^ method not found in `PhysicalDeviceFeatures2`
-   | |_____________|
-   |
-
-error[E0599]: no method named `push_next` found for struct `PhysicalDeviceFeatures2` in the current scope
-  --> src/vk.rs:77:14
-   |
-76 |           let mut feats2_enable = PhysicalDeviceFeatures2::default()
-   |  _________________________________-
-77 | |             .push_next(&mut f16i8_enable)
-   | |             -^^^^^^^^^ method not found in `PhysicalDeviceFeatures2`
-   | |_____________|
-   |
+5 |     PhysicalDeviceFeatures2,
+  |     ^^^^^^^^^^^^^^^^^^^^^^^
+6 |     PhysicalDeviceFloat16Int8FeaturesKHR,
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+7 |     PhysicalDevice16BitStorageFeaturesKHR,
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
 
 warning: unused variable: `as_bytes`
-   --> src/vk.rs:254:17
+   --> src/vk.rs:261:17
     |
-254 |             let as_bytes = |ptr: *const u8, len_bytes: usize| unsafe {
+261 |             let as_bytes = |ptr: *const u8, len_bytes: usize| unsafe {
     |                 ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_as_bytes`
     |
     = note: `#[warn(unused_variables)]` on by default
 
-Some errors have detailed explanations: E0432, E0599.
-For more information about an error, try `rustc --explain E0432`.
-warning: `pi5-llama` (bin "pi5-llama") generated 1 warning
-error: could not compile `pi5-llama` (bin "pi5-llama") due to 3 previous errors; 1 warning emitted
+warning: trait `Softmax` is never used
+ --> src/backend.rs:8:11
+  |
+8 | pub trait Softmax {
+  |           ^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` on by default
+
+warning: struct `CpuBackend` is never constructed
+  --> src/backend.rs:12:12
+   |
+12 | pub struct CpuBackend; // defined in cpu.rs (imported via crate::cpu::CpuBackend)
+   |            ^^^^^^^^^^
+
+warning: struct `VkBackend` is never constructed
+  --> src/backend.rs:13:12
+   |
+13 | pub struct VkBackend;  // defined in vk.rs  (imported via crate::vk::VkBackend)
+   |            ^^^^^^^^^
+
+warning: fields `entry` and `qf_index` are never read
+  --> src/vk.rs:22:5
+   |
+21 | pub struct VkBackend {
+   |            --------- fields in this struct
+22 |     entry: Entry,
+   |     ^^^^^
+...
+27 |     qf_index: u32,
+   |     ^^^^^^^^
+
+warning: structure field `M` should have a snake case name
+  --> src/vk.rs:17:5
+   |
+17 |     M: u32, N: u32, K: u32,
+   |     ^ help: convert the identifier to snake case: `m`
+   |
+   = note: `#[warn(non_snake_case)]` on by default
+
+warning: structure field `N` should have a snake case name
+  --> src/vk.rs:17:13
+   |
+17 |     M: u32, N: u32, K: u32,
+   |             ^ help: convert the identifier to snake case: `n`
+
+warning: structure field `K` should have a snake case name
+  --> src/vk.rs:17:21
+   |
+17 |     M: u32, N: u32, K: u32,
+   |                     ^ help: convert the identifier to snake case (notice the capitalization): `k`
+
+warning: `pi5-llama` (bin "pi5-llama") generated 9 warnings (run `cargo fix --bin "pi5-llama"` to apply 1 suggestion)
