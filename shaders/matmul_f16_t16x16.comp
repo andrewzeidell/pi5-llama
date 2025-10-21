@@ -1,5 +1,5 @@
 #version 450
-#extension GL_EXT_shader_16bit_storage : require                // 16-bit in SSBOs
+#extension GL_EXT_shader_16bit_storage : require
 #extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
@@ -8,14 +8,12 @@ layout(push_constant) uniform Push {
     uint M, N, K, lda, ldb, ldc;
 } pc;
 
-// SSBOs now store float16_t
+// SSBOs use float16_t elements (smaller bandwidth)
 layout(std430, binding = 0) readonly buffer ABuf { float16_t A[]; };
 layout(std430, binding = 1) readonly buffer BBuf { float16_t B[]; };
 layout(std430, binding = 2) writeonly buffer CBuf { float16_t C[]; };
 
 const uint TILE = 16;
-
-// Shared tiles in f16 to reduce LDS traffic
 shared float16_t Asub[TILE][TILE];
 shared float16_t Bsub[TILE][TILE];
 
@@ -24,7 +22,6 @@ void main() {
     uint col = gl_GlobalInvocationID.x;
     if (row >= pc.M || col >= pc.N) return;
 
-    // Accumulate in f32 for accuracy & throughput
     float acc = 0.0;
 
     for (uint kt = 0; kt < pc.K; kt += TILE) {
@@ -36,18 +33,15 @@ void main() {
 
         Asub[gl_LocalInvocationID.y][gl_LocalInvocationID.x] = a_val;
         Bsub[gl_LocalInvocationID.y][gl_LocalInvocationID.x] = b_val;
-
         barrier();
 
         #pragma unroll
         for (uint k = 0; k < TILE; ++k) {
-            // Promote to f32 on the fly
             acc += float(Asub[gl_LocalInvocationID.y][k]) * float(Bsub[k][gl_LocalInvocationID.x]);
         }
 
         barrier();
     }
 
-    // Downcast to f16 for storage
     C[row * pc.ldc + col] = float16_t(acc);
 }
