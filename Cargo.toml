@@ -1,0 +1,10 @@
+[package]
+name = "pi5-llama"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ash = "0.37"
+anyhow = "1"
+bytemuck = "1"
+thiserror = "1"
