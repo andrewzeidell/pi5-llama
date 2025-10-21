@@ -82,9 +82,11 @@ impl VkBackend {
 
         // Shader module
         // NOTE: SPIR-V must be 4-byte aligned; include_bytes! is fine and we cast safely.
-        let spirv: &[u8] = include_bytes!("../shaders/matmul_f32_t16x16.spv");
-        assert!(spirv.len() % 4 == 0, "SPIR-V must be 4-byte aligned");
-        let words: &[u32] = bytemuck::cast_slice(spirv);
+        let spirv_bytes: &[u8] = include_bytes!("../shaders/matmul_f32_t16x16.spv");
+        assert!(spirv_bytes.len() % 4 == 0, "SPIR-V must be multiple of 4 bytes");
+        let (head, words, tail) = unsafe { spirv_bytes.align_to::<u32>() };
+        assert!(head.is_empty() && tail.is_empty(), "SPIR-V slice not aligned to 4 bytes");
+        let sm_info = vk::ShaderModuleCreateInfo::builder().code(words);
         let sm_info = vk::ShaderModuleCreateInfo::builder().code(words);
         let shader_module = unsafe { device.create_shader_module(&sm_info, None)? };
 
