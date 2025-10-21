@@ -50,3 +50,15 @@ warning: structure field `K` should have a snake case name
    |                     ^ help: convert the identifier to snake case (notice the capitalization): `k`
 
 warning: `pi5-llama` (bin "pi5-llama") generated 7 warnings
+
+
+thread 'main' panicked at /home/aczeidinski/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bytemuck-1.24.0/src/internal.rs:33:3:
+cast_slice>TargetAlignmentGreaterAndInputNotAligned
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+   1: core::panicking::panic_fmt
+   2: bytemuck::internal::something_went_wrong
+   3: pi5_llama::vk::VkBackend::new
+   4: pi5_llama::main
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
