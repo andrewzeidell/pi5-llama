@@ -1,87 +1,52 @@
-error[E0716]: temporary value dropped while borrowed
-  --> src/vk.rs:77:27
-   |
-77 |             .set_layouts(&[desc_set_layout])
-   |                           ^^^^^^^^^^^^^^^^^ creates a temporary value which is freed while still in use
-78 |             .push_constant_ranges(&[pc_range]);
-   |                                               - temporary value is freed at the end of this statement
-79 |         let pipeline_layout = unsafe { device.create_pipeline_layout(&pl_info, None)? };
-   |                                                                      -------- borrow later used here
-   |
-help: consider using a `let` binding to create a longer lived value
-   |
-76 ~         let binding = [desc_set_layout];
-77 ~         let pl_info = vk::PipelineLayoutCreateInfo::builder()
-78 ~             .set_layouts(&binding)
-   |
+warning: trait `Softmax` is never used
+ --> src/backend.rs:8:11
+  |
+8 | pub trait Softmax {
+  |           ^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` on by default
 
-error[E0716]: temporary value dropped while borrowed
-  --> src/vk.rs:78:36
+warning: struct `CpuBackend` is never constructed
+  --> src/backend.rs:12:12
    |
-78 |             .push_constant_ranges(&[pc_range]);
-   |                                    ^^^^^^^^^^ - temporary value is freed at the end of this statement
-   |                                    |
-   |                                    creates a temporary value which is freed while still in use
-79 |         let pipeline_layout = unsafe { device.create_pipeline_layout(&pl_info, None)? };
-   |                                                                      -------- borrow later used here
-   |
-help: consider using a `let` binding to create a longer lived value
-   |
-76 ~         let binding = [pc_range];
-77 ~         let pl_info = vk::PipelineLayoutCreateInfo::builder()
-78 |             .set_layouts(&[desc_set_layout])
-79 ~             .push_constant_ranges(&binding);
-   |
+12 | pub struct CpuBackend; // defined in cpu.rs (imported via crate::cpu::CpuBackend)
+   |            ^^^^^^^^^^
 
-error[E0716]: temporary value dropped while borrowed
-   --> src/vk.rs:184:27
-    |
-184 |             .set_layouts(&[self.desc_set_layout]);
-    |                           ^^^^^^^^^^^^^^^^^^^^^^ - temporary value is freed at the end of this statement
-    |                           |
-    |                           creates a temporary value which is freed while still in use
-185 |         let desc_set = unsafe { self.device.allocate_descriptor_sets(&alloc_info)? }[0];
-    |                                                                      ----------- borrow later used here
-    |
-help: consider using a `let` binding to create a longer lived value
-    |
-182 ~         let binding = [self.desc_set_layout];
-183 ~         let alloc_info = vk::DescriptorSetAllocateInfo::builder()
-184 |             .descriptor_pool(self.desc_pool)
-185 ~             .set_layouts(&binding);
-    |
-
-error[E0716]: temporary value dropped while borrowed
-   --> src/vk.rs:239:65
-    |
-239 |         let submit = vk::SubmitInfo::builder().command_buffers(&[cmd]);
-    |                                                                 ^^^^^ - temporary value is freed at the end of this statement
-    |                                                                 |
-    |                                                                 creates a temporary value which is freed while still in use
-240 |         unsafe {
-241 |             self.device.queue_submit(self.queue, &[*submit], vk::Fence::null())?;
-    |                                                     ------ borrow later used here
-    |
-help: consider using a `let` binding to create a longer lived value
-    |
-239 ~         let binding = [cmd];
-240 ~         let submit = vk::SubmitInfo::builder().command_buffers(&binding);
-    |
-
-warning: variable does not need to be mutable
-  --> src/main.rs:15:9
+warning: struct `VkBackend` is never constructed
+  --> src/backend.rs:13:12
    |
-15 |     let mut a = vec![1.0f32; m*k];
-   |         ----^
-   |         |
-   |         help: remove this `mut`
-   |
-   = note: `#[warn(unused_mut)]` on by default
+13 | pub struct VkBackend;  // defined in vk.rs  (imported via crate::vk::VkBackend)
+   |            ^^^^^^^^^
 
-warning: variable does not need to be mutable
-  --> src/main.rs:16:9
+warning: fields `entry` and `qf_index` are never read
+  --> src/vk.rs:16:5
    |
-16 |     let mut b = vec![1.0f32; k*n];
-   |         ----^
-   |         |
-   |         help: remove this `mut`
+15 | pub struct VkBackend {
+   |            --------- fields in this struct
+16 |     entry: Entry,
+   |     ^^^^^
+...
+21 |     qf_index: u32,
+   |     ^^^^^^^^
+
+warning: structure field `M` should have a snake case name
+  --> src/vk.rs:11:5
+   |
+11 |     M: u32, N: u32, K: u32,
+   |     ^ help: convert the identifier to snake case: `m`
+   |
+   = note: `#[warn(non_snake_case)]` on by default
+
+warning: structure field `N` should have a snake case name
+  --> src/vk.rs:11:13
+   |
+11 |     M: u32, N: u32, K: u32,
+   |             ^ help: convert the identifier to snake case: `n`
+
+warning: structure field `K` should have a snake case name
+  --> src/vk.rs:11:21
+   |
+11 |     M: u32, N: u32, K: u32,
+   |                     ^ help: convert the identifier to snake case (notice the capitalization): `k`
+
+warning: `pi5-llama` (bin "pi5-llama") generated 7 warnings
