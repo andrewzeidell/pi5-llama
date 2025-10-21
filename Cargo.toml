@@ -7,3 +7,4 @@ edition = "2024"
 ash = "0.37"
 anyhow = "1"
 bytemuck = { version = "1", features = ["derive"] }
+half = "2"
