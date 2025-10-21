@@ -184,7 +184,7 @@ impl VkBackend {
 
         Ok(Self {
             entry, instance, phys, device, queue, qf_index,
-            pipeline_layout, pipeline, cmd_pool, vk::Pipeline::null(),
+            pipeline_layout, pipeline, cmd_pool, 
             query_pool, desc_set_layout, desc_pool, 
             use_f16,
         })
