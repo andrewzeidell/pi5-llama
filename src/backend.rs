@@ -1,23 +1,24 @@
 // src/backend.rs
+use anyhow::Result;
+
 pub trait MatMul {
-    /// C[m x n] = A[m x k] * B[k x n]
-    /// All buffers are row-major, f32 for now (we'll add f16/i8 later).
     fn matmul(&mut self, m: usize, n: usize, k: usize,
-              a: &[f32], b: &[f32], c: &mut [f32]) -> anyhow::Result<()>;
+              a: &[f32], b: &[f32], c: &mut [f32]) -> Result<()>;
+}
+pub trait Softmax {
+    fn softmax_rows(&mut self, rows: usize, cols: usize, x: &mut [f32]) -> Result<()>;
 }
 
-pub trait Softmax {
-    /// In-place softmax over last dim (per row).
-    fn softmax_rows(&mut self, rows: usize, cols: usize, x: &mut [f32]) -> anyhow::Result<()>;
-}
+pub struct CpuBackend; // defined in cpu.rs (imported via crate::cpu::CpuBackend)
+pub struct VkBackend;  // defined in vk.rs  (imported via crate::vk::VkBackend)
 
 pub enum Backend {
-    Cpu(CpuBackend),
-    Vk(VkBackend),
+    Cpu(crate::cpu::CpuBackend),
+    Vk(crate::vk::VkBackend),
 }
 
 impl MatMul for Backend {
-    fn matmul(&mut self, m: usize, n: usize, k: usize, a: &[f32], b: &[f32], c: &mut [f32]) -> anyhow::Result<()> {
+    fn matmul(&mut self, m: usize, n: usize, k: usize, a: &[f32], b: &[f32], c: &mut [f32]) -> Result<()> {
         match self {
             Backend::Cpu(bk) => bk.matmul(m, n, k, a, b, c),
             Backend::Vk(bk)  => bk.matmul(m, n, k, a, b, c),
@@ -26,10 +27,16 @@ impl MatMul for Backend {
 }
 
 impl Softmax for Backend {
-    fn softmax_rows(&mut self, rows: usize, cols: usize, x: &mut [f32]) -> anyhow::Result<()> {
-        match self {
-            Backend::Cpu(bk) => bk.softmax_rows(rows, cols, x),
-            Backend::Vk(bk)  => bk.softmax_rows(rows, cols, x), // (CPU fallback at first)
+    fn softmax_rows(&mut self, rows: usize, cols: usize, x: &mut [f32]) -> Result<()> {
+        // CPU fallback for now
+        for i in 0..rows {
+            let row = &mut x[i*cols..(i+1)*cols];
+            let maxv = row.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+            let mut sum = 0.0;
+            for v in row.iter_mut() { *v = (*v - maxv).exp(); sum += *v; }
+            let inv = 1.0 / sum;
+            for v in row.iter_mut() { *v *= inv; }
         }
+        Ok(())
     }
 }
