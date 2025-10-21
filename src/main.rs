@@ -12,8 +12,8 @@ fn main() -> anyhow::Result<()> {
     let m = 32;
     let n = 32;
     let k = 32;
-    let mut a = vec![1.0f32; m*k];
-    let mut b = vec![1.0f32; k*n];
+    let a = vec![1.0f32; m*k];
+    let b = vec![1.0f32; k*n];
     let mut c_cpu = vec![0.0f32; m*n];
     let mut c_gpu = vec![0.0f32; m*n];
 
