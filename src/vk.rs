@@ -73,9 +73,11 @@ impl VkBackend {
             offset: 0,
             size: size_of::<PushConsts>() as u32,
         };
+        let layouts = [desc_set_layout];
+        let pc_ranges = [pc_range];
         let pl_info = vk::PipelineLayoutCreateInfo::builder()
-            .set_layouts(&[desc_set_layout])
-            .push_constant_ranges(&[pc_range]);
+            .set_layouts(&layouts)
+            .push_constant_ranges(&pc_ranges);
         let pipeline_layout = unsafe { device.create_pipeline_layout(&pl_info, None)? };
 
         // Shader module
@@ -179,9 +181,10 @@ impl MatMul for VkBackend {
         self.write_buffer_pod(mem_b, b)?;
 
         // Descriptor set
+        let set_layouts = [self.desc_set_layout];
         let alloc_info = vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(self.desc_pool)
-            .set_layouts(&[self.desc_set_layout]);
+            .set_layouts(&set_layouts);
         let desc_set = unsafe { self.device.allocate_descriptor_sets(&alloc_info)? }[0];
 
         let descs = [
@@ -236,9 +239,10 @@ impl MatMul for VkBackend {
         }
 
         // Submit + wait
-        let submit = vk::SubmitInfo::builder().command_buffers(&[cmd]);
+        let cmd_bufs = [cmd];
+        let submit_info = vk::SubmitInfo::builder().command_buffers(&cmd_bufs);
         unsafe {
-            self.device.queue_submit(self.queue, &[*submit], vk::Fence::null())?;
+            self.device.queue_submit(self.queue, &[*submit_info], vk::Fence::null())?;
             self.device.queue_wait_idle(self.queue)?;
         }
 
