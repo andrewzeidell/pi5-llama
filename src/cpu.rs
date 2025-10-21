@@ -1,12 +1,9 @@
 // src/cpu.rs
-use crate::backend::MatMul;
 use anyhow::Result;
+use crate::backend::MatMul;
 
 pub struct CpuBackend;
-
-impl CpuBackend {
-    pub fn new() -> Self { Self }
-}
+impl CpuBackend { pub fn new() -> Self { Self } }
 
 impl MatMul for CpuBackend {
     fn matmul(&mut self, m: usize, n: usize, k: usize,
@@ -14,7 +11,6 @@ impl MatMul for CpuBackend {
         const BM: usize = 64;
         const BN: usize = 64;
         const BK: usize = 64;
-
         for i0 in (0..m).step_by(BM) {
             for j0 in (0..n).step_by(BN) {
                 for p0 in (0..k).step_by(BK) {
@@ -26,7 +22,6 @@ impl MatMul for CpuBackend {
                             let a_ip = a[i*k + p];
                             let b_row = &b[p*n..p*n+n];
                             let c_row = &mut c[i*n..i*n+n];
-                            // Unrolled inner over j
                             let mut j = j0;
                             while j + 4 <= jmax {
                                 c_row[j+0] += a_ip * b_row[j+0];
