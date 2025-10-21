@@ -1,0 +1,49 @@
+#version 450
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(push_constant) uniform Push {
+    uint M;
+    uint N;
+    uint K;
+    uint lda; // == K for row-major
+    uint ldb; // == N
+    uint ldc; // == N
+} pc;
+
+layout(std430, binding = 0) readonly buffer ABuf { float A[]; };
+layout(std430, binding = 1) readonly buffer BBuf { float B[]; };
+layout(std430, binding = 2) writeonly buffer CBuf { float C[]; };
+
+// Shared tiles
+shared float Asub[16][16];
+shared float Bsub[16][16];
+
+void main() {
+    uint row = gl_GlobalInvocationID.y;
+    uint col = gl_GlobalInvocationID.x;
+    if (row >= pc.M || col >= pc.N) return;
+
+    float acc = 0.0;
+    // Tile over K
+    for (uint kt = 0; kt < pc.K; kt += 16) {
+        // Each thread loads one A and one B element into shared
+        uint a_col = kt + gl_LocalInvocationID.x;
+        uint b_row = kt + gl_LocalInvocationID.y;
+
+        float a_val = (a_col < pc.K) ? A[row * pc.lda + a_col] : 0.0;
+        float b_val = (b_row < pc.K) ? B[b_row * pc.ldb + col] : 0.0;
+
+        Asub[gl_LocalInvocationID.y][gl_LocalInvocationID.x] = a_val;
+        Bsub[gl_LocalInvocationID.y][gl_LocalInvocationID.x] = b_val;
+
+        barrier();
+
+        // Compute partial dot for this tile
+        for (uint k = 0; k < 16; ++k) {
+            acc += Asub[gl_LocalInvocationID.y][k] * Bsub[k][gl_LocalInvocationID.x];
+        }
+        barrier();
+    }
+
+    C[row * pc.ldc + col] = acc;
+}
