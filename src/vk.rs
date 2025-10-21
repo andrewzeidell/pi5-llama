@@ -57,7 +57,7 @@ impl VkBackend {
         
         unsafe { instance.get_physical_device_features2(phys, &mut feats2); }
         
-        let use_f16 = true && s16.storage_buffer16_bit_access == vk::TRUE;
+        let use_f16 = f16i8.shader_float16 == vk::TRUE && s16.storage_buffer16_bit_access == vk::TRUE;
         println!(
             "Device reports: shaderFloat16={} storageBuffer16BitAccess={}",
             if f16i8.shader_float16 == vk::TRUE { "YES" } else { "no" },
