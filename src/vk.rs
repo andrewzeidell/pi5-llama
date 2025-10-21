@@ -124,7 +124,7 @@ impl VkBackend {
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
         let cmd_pool = unsafe { device.create_command_pool(&pool_info, None)? };
 
-        // HELPER for a small query pool
+        // Query pool
         let qp_info = vk::QueryPoolCreateInfo {
             query_type: vk::QueryType::TIMESTAMP,
             query_count: 2,
@@ -144,7 +144,7 @@ impl VkBackend {
 
         Ok(Self {
             entry, instance, phys, device, queue, qf_index,
-            pipeline_layout, pipeline, cmd_pool,
+            pipeline_layout, pipeline, cmd_pool, query_pool,
             desc_set_layout, desc_pool,
         })
     }
@@ -244,29 +244,83 @@ impl MatMul for VkBackend {
         let begin = vk::CommandBufferBeginInfo::builder();
         unsafe {
             self.device.begin_command_buffer(cmd, &begin)?;
+        
+            // (1) Reset and start timestamps
+            self.device.cmd_reset_query_pool(cmd, self.query_pool, 0, 2);
+            self.device.cmd_write_timestamp(
+                cmd,
+                vk::PipelineStageFlags::TOP_OF_PIPE,
+                self.query_pool,
+                0,
+            );
+        
+            // (2) Normal compute dispatch
             self.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, self.pipeline);
             self.device.cmd_bind_descriptor_sets(
-                cmd, vk::PipelineBindPoint::COMPUTE, self.pipeline_layout, 0, &[desc_set], &[]);
+                cmd,
+                vk::PipelineBindPoint::COMPUTE,
+                self.pipeline_layout,
+                0,
+                &[desc_set],
+                &[],
+            );
+        
             let pc = PushConsts {
-                M: m as u32, N: n as u32, K: k as u32,
-                lda: k as u32, ldb: n as u32, ldc: n as u32,
+                M: m as u32,
+                N: n as u32,
+                K: k as u32,
+                lda: k as u32,
+                ldb: n as u32,
+                ldc: n as u32,
             };
             self.device.cmd_push_constants(
-                cmd, self.pipeline_layout, vk::ShaderStageFlags::COMPUTE,
-                0, bytemuck::bytes_of(&pc));
-
+                cmd,
+                self.pipeline_layout,
+                vk::ShaderStageFlags::COMPUTE,
+                0,
+                bytemuck::bytes_of(&pc),
+            );
+        
             let gx = ((n as u32) + 15) / 16;
             let gy = ((m as u32) + 15) / 16;
             self.device.cmd_dispatch(cmd, gx, gy, 1);
+        
+            // (3) End timestamp
+            self.device.cmd_write_timestamp(
+                cmd,
+                vk::PipelineStageFlags::BOTTOM_OF_PIPE,
+                self.query_pool,
+                1,
+            );
+        
             self.device.end_command_buffer(cmd)?;
         }
-
         // Submit + wait
         let cmd_bufs = [cmd];
         let submit_info = vk::SubmitInfo::builder().command_buffers(&cmd_bufs);
         unsafe {
             self.device.queue_submit(self.queue, &[*submit_info], vk::Fence::null())?;
             self.device.queue_wait_idle(self.queue)?;
+            // (4) Read GPU timestamps
+            let mut timestamps = [0u64; 2];
+            unsafe {
+                self.device.get_query_pool_results(
+                    self.query_pool,
+                    0,
+                    2,
+                    &mut timestamps,
+                    vk::QueryResultFlags::TYPE_64 | vk::QueryResultFlags::WAIT,
+                )?;
+            }
+            let period_ns = unsafe {
+                self.instance
+                    .get_physical_device_properties(self.phys)
+                    .limits
+                    .timestamp_period
+            };
+            let gpu_time_ms =
+                (timestamps[1] - timestamps[0]) as f64 * (period_ns as f64) / 1_000_000.0;
+            println!("GPU kernel time: {:.3} ms", gpu_time_ms);
         }
 
         // Read back C
