@@ -1,11 +1,6 @@
 // src/vk.rs
 use anyhow::{Context, Result};
 use ash::{vk, Entry};
-use ash::vk::{
-    PhysicalDeviceFeatures2,
-    PhysicalDeviceFloat16Int8FeaturesKHR,
-    PhysicalDevice16BitStorageFeaturesKHR,
-};
 use half::f16;
 use bytemuck::{Pod, Zeroable};
 use std::{ffi::CString, mem::size_of};
