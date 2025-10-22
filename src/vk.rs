@@ -230,8 +230,9 @@ impl VkBackend {
             offset: 0,
             size: std::mem::size_of::<[u32; 2]>() as u32,
         };
+        let pc_ranges = [pc_range];
         let pl_info = vk::PipelineLayoutCreateInfo::builder()
-            .push_constant_ranges(&[pc_range]);
+            .push_constant_ranges(&pc_ranges);
         let pipeline_layout = unsafe { self.device.create_pipeline_layout(&pl_info, None)? };
         let cp_info = vk::ComputePipelineCreateInfo::builder()
             .stage(*stage_info)
@@ -264,9 +265,10 @@ impl VkBackend {
             .pool_sizes(&desc_pool_sizes)
             .max_sets(1);
         let desc_pool = unsafe { self.device.create_descriptor_pool(&dp_info, None)? };
+        let set_layouts = [desc_set_layout];
         let alloc_info = vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(desc_pool)
-            .set_layouts(&[desc_set_layout]);
+            .set_layouts(&set_layouts);
         let desc_set = unsafe { self.device.allocate_descriptor_sets(&alloc_info)? }[0];
 
         let buf_info = vk::DescriptorBufferInfo { buffer: buf_x, offset: 0, range: bytes_x };
@@ -299,7 +301,8 @@ impl VkBackend {
         }
 
         // --- Submit + wait ---
-        let submit_info = vk::SubmitInfo::builder().command_buffers(&[cmd]);
+        let cmd_bufs = [cmd];
+        let submit_info = vk::SubmitInfo::builder().command_buffers(&cmd_bufs);
         unsafe {
             self.device.queue_submit(self.queue, &[*submit_info], vk::Fence::null())?;
             self.device.queue_wait_idle(self.queue)?;
