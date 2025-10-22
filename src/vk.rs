@@ -150,7 +150,7 @@ impl VkBackend {
 
         Ok(())
     }
-}
+
     pub fn new() -> Result<Self> {
         let entry = unsafe { Entry::load().context("load Vulkan entry")? };
         let app_name = CString::new("pi5-llama")?;
@@ -390,7 +390,7 @@ impl VkBackend {
         unsafe { dev.free_command_buffers(self.cmd_pool, &[cmd]) };
         Ok(())
     }
-
+}
 
 // -----------------------------------------------------
 // MATMUL IMPLEMENTATION
