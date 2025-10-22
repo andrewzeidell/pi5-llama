@@ -9,55 +9,6 @@ error[E0252]: the name `Instant` is defined multiple times
     |
     = note: `Instant` must be defined only once in the type namespace of this block
 
-error: `self` parameter is only allowed in associated functions
-   --> src/vk.rs:273:26
-    |
-273 |     fn alloc_host_buffer(&self, size: vk::DeviceSize) -> Result<(vk::Buffer, vk::DeviceMemory)> {
-    |                          ^^^^^ not semantically valid as function parameter
-    |
-    = note: associated functions are those in `impl` or `trait` definitions
-
-error: `self` parameter is only allowed in associated functions
-   --> src/vk.rs:300:27
-    |
-300 |     fn write_buffer_bytes(&self, mem: vk::DeviceMemory, src: &[u8]) -> Result<()> {
-    |                           ^^^^^ not semantically valid as function parameter
-    |
-    = note: associated functions are those in `impl` or `trait` definitions
-
-error: `self` parameter is only allowed in associated functions
-   --> src/vk.rs:309:33
-    |
-309 |     fn write_buffer_pod<T: Pod>(&self, mem: vk::DeviceMemory, data: &[T]) -> Result<()> {
-    |                                 ^^^^^ not semantically valid as function parameter
-    |
-    = note: associated functions are those in `impl` or `trait` definitions
-
-error: `self` parameter is only allowed in associated functions
-   --> src/vk.rs:313:9
-    |
-313 |         &mut self,
-    |         ^^^^^^^^^ not semantically valid as function parameter
-    |
-    = note: associated functions are those in `impl` or `trait` definitions
-
-error[E0411]: cannot find type `Self` in this scope
-   --> src/vk.rs:154:28
-    |
-154 |     pub fn new() -> Result<Self> {
-    |            ---             ^^^^ `Self` is only available in impls, traits, and type definitions
-    |            |
-    |            `Self` not allowed in a function
-
-error[E0411]: cannot find struct, variant or union type `Self` in this scope
-   --> src/vk.rs:256:12
-    |
-154 |     pub fn new() -> Result<Self> {
-    |            --- `Self` not allowed in a function
-...
-256 |         Ok(Self {
-    |            ^^^^ `Self` is only available in impls, traits, and type definitions
-
 warning: unused import: `std::time::Instant`
    --> src/main.rs:138:13
     |
@@ -66,89 +17,25 @@ warning: unused import: `std::time::Instant`
     |
     = note: `#[warn(unused_imports)]` on by default
 
-error[E0599]: no method named `attention_fused` found for mutable reference `&mut vk::VkBackend` in the current scope
-  --> src/backend.rs:53:35
-   |
-53 |             Backend::Vk(bk) => bk.attention_fused(m, n, d, dv, q, k, v, o),
-   |                                   ^^^^^^^^^^^^^^^
-   |
-help: there is a method `init_attention_fused` with a similar name, but with different arguments
-  --> src/vk.rs:46:5
-   |
-46 |     pub fn init_attention_fused(&mut self, m: usize, n: usize, d: usize, dv: usize) -> anyhow::Result<()> {
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+error[E0063]: missing fields `buf_k`, `buf_o`, `buf_q` and 9 other fields in initializer of `vk::VkBackend`
+   --> src/vk.rs:256:12
+    |
+256 |         Ok(Self {
+    |            ^^^^ missing `buf_k`, `buf_o`, `buf_q` and 9 other fields
 
-error[E0599]: no method named `alloc_host_buffer` found for mutable reference `&mut vk::VkBackend` in the current scope
-   --> src/vk.rs:403:35
+error[E0716]: temporary value dropped while borrowed
+   --> src/vk.rs:376:70
     |
-403 |         let (buf_a, mem_a) = self.alloc_host_buffer(bytes_a)?;
-    |                                   ^^^^^^^^^^^^^^^^^ method not found in `&mut vk::VkBackend`
-
-error[E0599]: no method named `alloc_host_buffer` found for mutable reference `&mut vk::VkBackend` in the current scope
-   --> src/vk.rs:404:35
+376 |         let submit_info = vk::SubmitInfo::builder().command_buffers(&[cmd]);
+    |                                                                      ^^^^^ - temporary value is freed at the end of this statement
+    |                                                                      |
+    |                                                                      creates a temporary value which is freed while still in use
+377 |         unsafe {
+378 |             dev.queue_submit(self.queue, &[*submit_info], vk::Fence::null())?;
+    |                                             ----------- borrow later used here
     |
-404 |         let (buf_b, mem_b) = self.alloc_host_buffer(bytes_b)?;
-    |                                   ^^^^^^^^^^^^^^^^^ method not found in `&mut vk::VkBackend`
-
-error[E0599]: no method named `alloc_host_buffer` found for mutable reference `&mut vk::VkBackend` in the current scope
-   --> src/vk.rs:405:35
+help: consider using a `let` binding to create a longer lived value
     |
-405 |         let (buf_c, mem_c) = self.alloc_host_buffer(bytes_c)?;
-    |                                   ^^^^^^^^^^^^^^^^^ method not found in `&mut vk::VkBackend`
-
-error[E0599]: no method named `write_buffer_pod` found for mutable reference `&mut vk::VkBackend` in the current scope
-   --> src/vk.rs:406:14
+376 ~         let binding = [cmd];
+377 ~         let submit_info = vk::SubmitInfo::builder().command_buffers(&binding);
     |
-406 |         self.write_buffer_pod(mem_a, a)?;
-    |              ^^^^^^^^^^^^^^^^ method not found in `&mut vk::VkBackend`
-
-error[E0599]: no method named `write_buffer_pod` found for mutable reference `&mut vk::VkBackend` in the current scope
-   --> src/vk.rs:407:14
-    |
-407 |         self.write_buffer_pod(mem_b, b)?;
-    |              ^^^^^^^^^^^^^^^^ method not found in `&mut vk::VkBackend`
-
-error[E0599]: no method named `alloc_host_buffer` found for mutable reference `&mut vk::VkBackend` in the current scope
-   --> src/vk.rs:545:35
-    |
-545 |         let (buf_x, mem_x) = self.alloc_host_buffer(bytes_x)?;
-    |                                   ^^^^^^^^^^^^^^^^^ method not found in `&mut vk::VkBackend`
-
-error[E0599]: no method named `write_buffer_pod` found for mutable reference `&mut vk::VkBackend` in the current scope
-   --> src/vk.rs:546:14
-    |
-546 |         self.write_buffer_pod(mem_x, x)?;
-    |              ^^^^^^^^^^^^^^^^ method not found in `&mut vk::VkBackend`
-
-error[E0599]: no function or associated item named `new` found for struct `vk::VkBackend` in the current scope
-  --> src/main.rs:15:42
-   |
-15 |     let mut gpu = Backend::Vk(VkBackend::new()?);
-   |                                          ^^^ function or associated item not found in `vk::VkBackend`
-   |
-  ::: src/vk.rs:15:1
-   |
-15 | pub struct VkBackend {
-   | -------------------- function or associated item `new` not found for this struct
-
-error[E0599]: no function or associated item named `new` found for struct `vk::VkBackend` in the current scope
-   --> src/main.rs:102:46
-    |
-102 |         let mut gpu = Backend::Vk(VkBackend::new()?);
-    |                                              ^^^ function or associated item not found in `vk::VkBackend`
-    |
-   ::: src/vk.rs:15:1
-    |
- 15 | pub struct VkBackend {
-    | -------------------- function or associated item `new` not found for this struct
-
-error[E0599]: no function or associated item named `new` found for struct `vk::VkBackend` in the current scope
-   --> src/main.rs:130:70
-    |
-130 |         let mut backend = backend::Backend::Vk(crate::vk::VkBackend::new()?);
-    |                                                                      ^^^ function or associated item not found in `vk::VkBackend`
-    |
-   ::: src/vk.rs:15:1
-    |
- 15 | pub struct VkBackend {
-    | -------------------- function or associated item `new` not found for this struct
