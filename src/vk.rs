@@ -310,7 +310,8 @@ impl Softmax for VkBackend {
             stage_flags: vk::ShaderStageFlags::COMPUTE,
             p_immutable_samplers: std::ptr::null(),
         };
-        let dsl_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&[binding0]);
+        let bindings = [binding0];
+        let dsl_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
         let dsl = unsafe { self.device.create_descriptor_set_layout(&dsl_info, None)? };
 
         // Pipeline layout includes push constants + set layout
