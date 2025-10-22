@@ -8,8 +8,8 @@ use cpu::CpuBackend;
 use vk::VkBackend;
 
 fn main() -> anyhow::Result<()> {
-    let rows = 32;
-    let cols = 32;
+    let rows = 16;
+    let cols = 16;
     let mut data = vec![
         1.0, 2.0, 3.0, 4.0, 1.0, 2.0, 3.0, 4.0,
         5.0, 4.0, 3.0, 2.0, 5.0, 4.0, 3.0, 2.0,
