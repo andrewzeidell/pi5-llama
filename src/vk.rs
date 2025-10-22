@@ -5,6 +5,7 @@ use half::f16;
 use bytemuck::{Pod, Zeroable};
 use std::{ffi::CString, mem::size_of};
 use crate::backend::MatMul;
+use crate::backend::Softmax;
 
 #[repr(C)]
 #[derive(Clone, Copy, Zeroable, Pod)]
@@ -367,6 +368,12 @@ impl VkBackend {
 
     fn write_buffer_pod<T: Pod>(&self, mem: vk::DeviceMemory, data: &[T]) -> Result<()> {
         self.write_buffer_bytes(mem, bytemuck::cast_slice(data))
+    }
+}
+
+impl crate::backend::Softmax for VkBackend {
+    fn softmax_rows(&mut self, rows: usize, cols: usize, x: &mut [f32]) -> anyhow::Result<()> {
+        self.softmax_rows(rows, cols, x)
     }
 }
 
