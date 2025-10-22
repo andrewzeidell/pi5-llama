@@ -1,0 +1,120 @@
+#version 450
+// One WORKGROUP == one query row
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(push_constant) uniform Push {
+    uint M;    // queries
+    uint N;    // keys/values
+    uint D;    // head dim
+    uint Dv;   // value dim
+    uint ldq;  // row stride Q (usually D)
+    uint ldk;  // row stride K (usually D)
+    uint ldv;  // row stride V (usually Dv)
+    uint ldo;  // row stride O (usually Dv)
+} pc;
+
+layout(std430, binding = 0) readonly buffer QBuf { float Q[]; };
+layout(std430, binding = 1) readonly buffer KBuf { float K[]; };
+layout(std430, binding = 2) readonly buffer VBuf { float V[]; };
+layout(std430, binding = 3) writeonly buffer OBuf { float O[]; };
+
+const uint WG = 64;
+shared float s_red[WG];   // for reductions of dot products
+shared float s_alpha;     // streaming-softmax rescale for accumulator
+shared float s_beta;      // streaming-softmax weight for current key
+
+void main() {
+    uint row = gl_WorkGroupID.x;
+    if (row >= pc.M) return;
+
+    uint lid = gl_LocalInvocationIndex;
+
+    // Precompute scaling 1/sqrt(D)
+    float inv_sqrt_d = inversesqrt(float(pc.D));
+
+    // Each thread owns a strided subset of output columns (Dv)
+    // Keep accumulator in registers across the scan over N
+    // (This is the main memory win: never store P or S.)
+    // NOTE: For very large Dv, this becomes register heavy; tile Dv later.
+    // Here we keep it simple and general with a loop.
+    // acc[v] is implicit: we just keep values in a loop variable per v index we own.
+    // Initialize as 0.
+    // Nothing to do here yet; we initialize lazily.
+
+    // Streaming softmax state for this row (only lane 0 updates; broadcast via shared)
+    float m = -3.402823e38; // -FLT_MAX
+    float l = 0.0;
+
+    // We'll keep accumulators in-flight per thread for the v it owns
+    // Initialize to 0
+    // (No need to allocate arrays—just reuse a scalar per v in the loop).
+
+    // Scan over keys/values
+    for (uint j = 0; j < pc.N; ++j) {
+        // Compute score = dot(Q[row,:], K[j,:]) / sqrt(D)
+        // Each thread accumulates over its strided subset of D
+        float local_dot = 0.0;
+        for (uint d = lid; d < pc.D; d += WG) {
+            float qv = Q[row * pc.ldq + d];
+            float kv = K[j   * pc.ldk + d];
+            local_dot += qv * kv;
+        }
+        s_red[lid] = local_dot;
+        barrier();
+
+        // Reduce within WG
+        for (uint off = WG >> 1; off > 0; off >>= 1) {
+            if (lid < off) s_red[lid] += s_red[lid + off];
+            barrier();
+        }
+
+        float score = s_red[0] * inv_sqrt_d;  // only valid after reduction
+
+        // Lane 0 updates streaming softmax, computes alpha/beta
+        if (lid == 0u) {
+            if (score <= m) {
+                // l_new = l + exp(score - m)
+                float e = exp(score - m);
+                float l_new = l + e;
+                s_alpha = l / l_new;      // rescale previous accumulator by this
+                s_beta  = e / l_new;      // weight for current key
+                l = l_new;
+            } else {
+                // New max
+                float e = exp(m - score);
+                float l_new = l * e + 1.0;
+                s_alpha = (l * e) / l_new;
+                s_beta  = 1.0 / l_new;
+                l = l_new;
+                m = score;
+            }
+        }
+        barrier();
+
+        // Update output accumulator O[row,:] = alpha*O[row,:] + beta*V[j,:]
+        float alpha = s_alpha;
+        float beta  = s_beta;
+
+        for (uint v = lid; v < pc.Dv; v += WG) {
+            // Load prior acc (we keep it implicitly in O while scanning? No: O is the final output.
+            // To keep fully fused, we need a register accumulator. Use 0 on first j, but we don't know j==0 here.
+            // Trick: we can store accumulators in shared between iterations? That would blow LDS if Dv is large.
+            // Instead: keep per-thread register accumulator across j in a local static variable.
+        }
+
+        // We can't declare dynamic register arrays; so we do this:
+        // Maintain accumulator in global memory O during the scan:
+        // O[row,:] = alpha*O[row,:] + beta*V[j,:]
+        // This writes each step, but still avoids storing P and keeps memory linear.
+        // It's okay for now; fusion still removes the entire S matrix.
+
+        for (uint v = lid; v < pc.Dv; v += WG) {
+            // Read current O (0 if first step)
+            float prev = (j == 0u) ? 0.0 : O[row * pc.ldo + v];
+            float add  = V[j * pc.ldv + v];
+            float outv = alpha * prev + beta * add;
+            O[row * pc.ldo + v] = outv;
+        }
+        barrier();
+    }
+}
