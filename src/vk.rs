@@ -254,19 +254,23 @@ impl VkBackend {
         let desc_pool = unsafe { device.create_descriptor_pool(&dp_info, None)? };
 
         Ok(Self {
-            entry,
-            instance,
-            phys,
-            device,
-            queue,
-            qf_index,
-            use_f16: false,
-            pipeline_layout,
-            pipeline,
-            cmd_pool,
-            query_pool,
-            desc_set_layout,
-            desc_pool,
+            entry, instance, phys, device, queue, qf_index,
+            pipeline_layout, pipeline, cmd_pool,
+            desc_set_layout, desc_pool,
+        
+            // new persistent resources (initialize to None)
+            pipeline_fused: None,
+            pipeline_layout_fused: None,
+            desc_set_layout_fused: None,
+            desc_pool_fused: None,
+            buf_q: None,
+            mem_q: None,
+            buf_k: None,
+            mem_k: None,
+            buf_v: None,
+            mem_v: None,
+            buf_o: None,
+            mem_o: None,
         })
     }
 
@@ -373,7 +377,8 @@ impl VkBackend {
         }
     
         // Submit and wait
-        let submit_info = vk::SubmitInfo::builder().command_buffers(&[cmd]);
+       let cmd_bufs = [cmd];
+        let submit_info = vk::SubmitInfo::builder().command_buffers(&cmd_bufs);
         unsafe {
             dev.queue_submit(self.queue, &[*submit_info], vk::Fence::null())?;
             dev.queue_wait_idle(self.queue)?;
