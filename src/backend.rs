@@ -28,15 +28,9 @@ impl MatMul for Backend {
 
 impl Softmax for Backend {
     fn softmax_rows(&mut self, rows: usize, cols: usize, x: &mut [f32]) -> Result<()> {
-        // CPU fallback for now
-        for i in 0..rows {
-            let row = &mut x[i*cols..(i+1)*cols];
-            let maxv = row.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-            let mut sum = 0.0;
-            for v in row.iter_mut() { *v = (*v - maxv).exp(); sum += *v; }
-            let inv = 1.0 / sum;
-            for v in row.iter_mut() { *v *= inv; }
+        match self {
+            Backend::Cpu(bk) => bk.softmax_rows(rows, cols, x),
+            Backend::Vk(bk)  => bk.softmax_rows(rows, cols, x),
         }
-        Ok(())
     }
 }
