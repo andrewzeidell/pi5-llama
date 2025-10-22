@@ -1,6 +1,7 @@
 // src/cpu.rs
 use anyhow::Result;
 use crate::backend::MatMul;
+use crate::backend::Softmax;
 
 pub struct CpuBackend;
 impl CpuBackend { pub fn new() -> Self { Self } }
@@ -42,9 +43,6 @@ impl MatMul for CpuBackend {
         Ok(())
     }
 }
-
-use anyhow::Result;
-use crate::backend::Softmax;
 
 impl Softmax for crate::cpu::CpuBackend {
     fn softmax_rows(&mut self, rows: usize, cols: usize, x: &mut [f32]) -> Result<()> {
