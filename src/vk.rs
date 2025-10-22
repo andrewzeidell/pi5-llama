@@ -222,6 +222,31 @@ impl VkBackend {
         let sm_info = vk::ShaderModuleCreateInfo::builder().code(words);
         let shader_module = unsafe { self.device.create_shader_module(&sm_info, None)? };
 
+		// --- Descriptor set layout FIRST (binding 0: X buffer) ---
+		let bindings = [vk::DescriptorSetLayoutBinding {
+			binding: 0,
+			descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+			descriptor_count: 1,
+			stage_flags: vk::ShaderStageFlags::COMPUTE,
+			p_immutable_samplers: std::ptr::null(),
+		}];
+		let desc_set_layout_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
+		let desc_set_layout = unsafe { self.device.create_descriptor_set_layout(&desc_set_layout_info, None)? };
+
+		// --- Pipeline layout: include BOTH push constants and set layout ---
+		let pc_range = vk::PushConstantRange {
+			stage_flags: vk::ShaderStageFlags::COMPUTE,
+			offset: 0,
+			size: 8, // two u32s
+		};
+		let pc_ranges = [pc_range];
+		let set_layouts = [desc_set_layout];
+		let pl_info = vk::PipelineLayoutCreateInfo::builder()
+			.set_layouts(&set_layouts)
+			.push_constant_ranges(&pc_ranges);
+		let pipeline_layout = unsafe { self.device.create_pipeline_layout(&pl_info, None)? };
+
+
         // --- Create pipeline ---
         let entry_point = std::ffi::CString::new("main")?;
         let stage_info = vk::PipelineShaderStageCreateInfo::builder()
@@ -246,11 +271,13 @@ impl VkBackend {
         }.map_err(|e| anyhow::anyhow!("softmax pipeline create failed: {:?}", e))?[0];
         unsafe { self.device.destroy_shader_module(shader_module, None) };
         println!("Shader loaded");
+		
         // --- Upload data ---
         let bytes_x = (x.len() * 4) as u64;
         let (buf_x, mem_x) = self.alloc_host_buffer(bytes_x)?;
         self.write_buffer_pod(mem_x, x)?;
         println!("Buffers allocated");
+		
         // Descriptor set
         let bindings = [vk::DescriptorSetLayoutBinding {
             binding: 0,
@@ -321,6 +348,7 @@ impl VkBackend {
         println!("Reading back result");
         // --- Cleanup ---
         unsafe {
+			self.device.queue_wait_idle(self.queue)?; // already present
             self.device.free_command_buffers(self.cmd_pool, &[cmd]);
             self.device.destroy_buffer(buf_x, None);
             self.device.free_memory(mem_x, None);
