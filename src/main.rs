@@ -3,40 +3,35 @@ mod backend;
 mod cpu;
 mod vk;
 
-use backend::{Backend, MatMul};
+use backend::{Backend, MatMul, Softmax};
 use cpu::CpuBackend;
 use vk::VkBackend;
 
 fn main() -> anyhow::Result<()> {
-    let m = 512;
-    let n = 512;
-    let k = 512;
-    let a = vec![1.0f32; m*k];
-    let b = vec![1.0f32; k*n];
-    let mut c_cpu = vec![0.0f32; m*n];
-    let mut c_gpu = vec![0.0f32; m*n];
+    let rows = 4;
+    let cols = 8;
+    let mut data = vec![
+        1.0, 2.0, 3.0, 4.0, 1.0, 2.0, 3.0, 4.0,
+        5.0, 4.0, 3.0, 2.0, 5.0, 4.0, 3.0, 2.0,
+        1.0, 2.0, 5.0, 3.0, 2.0, 2.0, 5.0, 3.0,
+        2.0, 3.0, 1.0, 0.0, 2.0, 3.0, 1.0, 0.0,
+    ];
 
-    // --- CPU ---
     let mut cpu = Backend::Cpu(CpuBackend::new());
+    let mut gpu = Backend::Vk(VkBackend::new()?);
+
+    let mut x_cpu = data.clone();
+    let mut x_gpu = data.clone();
+
     let t0 = Instant::now();
-    cpu.matmul(m, n, k, &a, &b, &mut c_cpu)?;
-    let dt_cpu = t0.elapsed().as_secs_f64() * 1e3;
+    cpu.softmax_rows(rows, cols, &mut x_cpu)?;
+    println!("CPU softmax: {:.3} ms", t0.elapsed().as_secs_f64() * 1e3);
 
-    // --- GPU ---
-    let mut vk = Backend::Vk(VkBackend::new()?);
     let t1 = Instant::now();
-    vk.matmul(m, n, k, &a, &b, &mut c_gpu)?;
-    let dt_gpu = t1.elapsed().as_secs_f64() * 1e3;
+    gpu.softmax_rows(rows, cols, &mut x_gpu)?;
+    println!("GPU softmax: {:.3} ms", t1.elapsed().as_secs_f64() * 1e3);
 
-    // --- Verify ---
-    let diff = c_cpu.iter().zip(&c_gpu)
-        .map(|(x,y)| (x - y).abs()).fold(0.0, f32::max);
-
-    // FLOPs ≈ 2*m*n*k
-    let gflops = 2.0 * (m as f64) * (n as f64) * (k as f64) / 1e9;
-    println!("Size: {m}x{n}x{k}");
-    println!("CPU: {:.2} ms ({:.2} GFLOP/s)", dt_cpu, gflops / (dt_cpu / 1e3));
-    println!("GPU: {:.2} ms ({:.2} GFLOP/s)", dt_gpu, gflops / (dt_gpu / 1e3));
+    let diff = x_cpu.iter().zip(&x_gpu).map(|(a, b)| (a - b).abs()).fold(0.0, f32::max);
     println!("Max abs diff: {:.6}", diff);
     Ok(())
 }
