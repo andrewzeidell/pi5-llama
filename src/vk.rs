@@ -390,7 +390,7 @@ impl VkBackend {
         unsafe { dev.free_command_buffers(self.cmd_pool, &[cmd]) };
         Ok(())
     }
-}
+
 
 // -----------------------------------------------------
 // MATMUL IMPLEMENTATION
