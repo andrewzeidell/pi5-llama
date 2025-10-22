@@ -1,37 +1,65 @@
+use std::env;
 use std::time::Instant;
+
 mod backend;
 mod cpu;
 mod vk;
 
-use backend::{Backend, MatMul, Softmax};
+use anyhow::Result;
+use backend::{Backend, Softmax};
 use cpu::CpuBackend;
 use vk::VkBackend;
 
-fn main() -> anyhow::Result<()> {
-    let rows = 4;
-    let cols = 8;
-    let mut data = vec![
-        1.0, 2.0, 3.0, 4.0, 1.0, 2.0, 3.0, 4.0,
-        5.0, 4.0, 3.0, 2.0, 5.0, 4.0, 3.0, 2.0,
-        1.0, 2.0, 5.0, 3.0, 2.0, 2.0, 5.0, 3.0,
-        2.0, 3.0, 1.0, 0.0, 2.0, 3.0, 1.0, 0.0,
-    ];
-
+fn bench_softmax(rows: usize, cols: usize, iters: usize) -> Result<()> {
     let mut cpu = Backend::Cpu(CpuBackend::new());
     let mut gpu = Backend::Vk(VkBackend::new()?);
 
-    let mut x_cpu = data.clone();
-    let mut x_gpu = data.clone();
+    // deterministic but non-trivial input
+    let mut x_cpu: Vec<f32> = (0..rows*cols).map(|i| ((i % 101) as f32) * 0.01 - 0.5).collect();
+    let mut x_gpu = x_cpu.clone();
 
-    let t0 = Instant::now();
+    // warmup
     cpu.softmax_rows(rows, cols, &mut x_cpu)?;
-    println!("CPU softmax: {:.3} ms", t0.elapsed().as_secs_f64() * 1e3);
-
-    let t1 = Instant::now();
     gpu.softmax_rows(rows, cols, &mut x_gpu)?;
-    println!("GPU softmax: {:.3} ms", t1.elapsed().as_secs_f64() * 1e3);
 
-    let diff = x_cpu.iter().zip(&x_gpu).map(|(a, b)| (a - b).abs()).fold(0.0, f32::max);
-    println!("Max abs diff: {:.6}", diff);
+    // check correctness
+    let diff = x_cpu.iter().zip(&x_gpu).map(|(a,b)| (a-b).abs()).fold(0.0, f32::max);
+    println!("Max abs diff after warmup: {:.6}", diff);
+
+    // CPU bench
+    let t0 = Instant::now();
+    for _ in 0..iters {
+        let mut tmp = x_cpu.clone();
+        cpu.softmax_rows(rows, cols, &mut tmp)?;
+    }
+    let cpu_ms = t0.elapsed().as_secs_f64() * 1e3 / (iters as f64);
+
+    // GPU bench
+    let t1 = Instant::now();
+    for _ in 0..iters {
+        let mut tmp = x_gpu.clone();
+        gpu.softmax_rows(rows, cols, &mut tmp)?;
+    }
+    let gpu_ms = t1.elapsed().as_secs_f64() * 1e3 / (iters as f64);
+
+    println!("CPU softmax: {:.3} ms (avg over {} iters)", cpu_ms, iters);
+    println!("GPU softmax: {:.3} ms (avg over {} iters)", gpu_ms, iters);
+    Ok(())
+}
+
+fn main() -> Result<()> {
+    let args: Vec<String> = env::args().collect();
+    if args.len() >= 2 && args[1] == "softmax" {
+        let rows: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1024);
+        let cols: usize = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(512);
+        let iters: usize = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(10);
+        println!("Running softmax rows={} cols={} iters={}", rows, cols, iters);
+        return bench_softmax(rows, cols, iters);
+    }
+
+    println!("Usage:");
+    println!("  cargo run --release -- softmax <rows> <cols> <iters>");
+    println!("Example:");
+    println!("  cargo run --release -- softmax 2048 512 10");
     Ok(())
 }
