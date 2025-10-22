@@ -23,3 +23,12 @@ note: the method `attention_fused` exists on the type `vk::VkBackend`
 
 For more information about this error, try `rustc --explain E0599`.
 error: could not compile `pi5-llama` (bin "pi5-llama") due to 1 previous error
+
+glslangValidator -V shaders/attn_fused.comp -o shaders/attn_fused.spv
+shaders/attn_fused.comp
+ERROR: shaders/attn_fused.comp:113: ':' : can't read from writeonly object:  
+ERROR: shaders/attn_fused.comp:113: '' : compilation terminated 
+ERROR: 2 compilation errors.  No code generated.
+
+
+SPIR-V is not generated for failed compile or link
