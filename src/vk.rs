@@ -4,7 +4,7 @@ use ash::{vk, Entry};
 use half::f16;
 use bytemuck::{Pod, Zeroable};
 use std::{ffi::CString, mem::size_of};
-use crate::backend::Softmax;
+use crate::backend::MatMul;
 
 #[repr(C)]
 #[derive(Clone, Copy, Zeroable, Pod)]
