@@ -203,6 +203,129 @@ impl VkBackend {
         })
     }
 
+
+    pub fn softmax_rows(&mut self, rows: usize, cols: usize, x: &mut [f32]) -> Result<()> {
+        use std::fs::File;
+        use std::io::Read;
+
+        // --- Load the SPIR-V shader ---
+        let mut file = File::open("shaders/softmax_rows.spv")?;
+        let mut spirv_bytes = Vec::new();
+        file.read_to_end(&mut spirv_bytes)?;
+        let words: &[u32] = unsafe {
+            std::slice::from_raw_parts(spirv_bytes.as_ptr() as *const u32, spirv_bytes.len() / 4)
+        };
+        let sm_info = vk::ShaderModuleCreateInfo::builder().code(words);
+        let shader_module = unsafe { self.device.create_shader_module(&sm_info, None)? };
+
+        // --- Create pipeline ---
+        let entry_point = std::ffi::CString::new("main")?;
+        let stage_info = vk::PipelineShaderStageCreateInfo::builder()
+            .stage(vk::ShaderStageFlags::COMPUTE)
+            .module(shader_module)
+            .name(&entry_point);
+
+        let pc_range = vk::PushConstantRange {
+            stage_flags: vk::ShaderStageFlags::COMPUTE,
+            offset: 0,
+            size: std::mem::size_of::<[u32; 2]>() as u32,
+        };
+        let pl_info = vk::PipelineLayoutCreateInfo::builder()
+            .push_constant_ranges(&[pc_range]);
+        let pipeline_layout = unsafe { self.device.create_pipeline_layout(&pl_info, None)? };
+        let cp_info = vk::ComputePipelineCreateInfo::builder()
+            .stage(*stage_info)
+            .layout(pipeline_layout);
+        let pipeline = unsafe {
+            self.device.create_compute_pipelines(vk::PipelineCache::null(), &[*cp_info], None)
+        }.map_err(|e| anyhow::anyhow!("softmax pipeline create failed: {:?}", e))?[0];
+        unsafe { self.device.destroy_shader_module(shader_module, None) };
+
+        // --- Upload data ---
+        let bytes_x = (x.len() * 4) as u64;
+        let (buf_x, mem_x) = self.alloc_host_buffer(bytes_x)?;
+        self.write_buffer_pod(mem_x, x)?;
+
+        // Descriptor set
+        let bindings = [vk::DescriptorSetLayoutBinding {
+            binding: 0,
+            descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+            descriptor_count: 1,
+            stage_flags: vk::ShaderStageFlags::COMPUTE,
+            p_immutable_samplers: std::ptr::null(),
+        }];
+        let desc_set_layout_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
+        let desc_set_layout = unsafe { self.device.create_descriptor_set_layout(&desc_set_layout_info, None)? };
+        let desc_pool_sizes = [vk::DescriptorPoolSize {
+            ty: vk::DescriptorType::STORAGE_BUFFER,
+            descriptor_count: 1,
+        }];
+        let dp_info = vk::DescriptorPoolCreateInfo::builder()
+            .pool_sizes(&desc_pool_sizes)
+            .max_sets(1);
+        let desc_pool = unsafe { self.device.create_descriptor_pool(&dp_info, None)? };
+        let alloc_info = vk::DescriptorSetAllocateInfo::builder()
+            .descriptor_pool(desc_pool)
+            .set_layouts(&[desc_set_layout]);
+        let desc_set = unsafe { self.device.allocate_descriptor_sets(&alloc_info)? }[0];
+
+        let buf_info = vk::DescriptorBufferInfo { buffer: buf_x, offset: 0, range: bytes_x };
+        let write = vk::WriteDescriptorSet {
+            dst_set: desc_set, dst_binding: 0, descriptor_count: 1,
+            descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+            p_buffer_info: &buf_info, ..Default::default()
+        };
+        unsafe { self.device.update_descriptor_sets(&[write], &[]) };
+
+        // --- Command buffer ---
+        let alloc = vk::CommandBufferAllocateInfo::builder()
+            .command_pool(self.cmd_pool)
+            .level(vk::CommandBufferLevel::PRIMARY)
+            .command_buffer_count(1);
+        let cmd = unsafe { self.device.allocate_command_buffers(&alloc)? }[0];
+        let begin = vk::CommandBufferBeginInfo::builder();
+
+        let pc_data = [rows as u32, cols as u32];
+        unsafe {
+            self.device.begin_command_buffer(cmd, &begin)?;
+            self.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, pipeline);
+            self.device.cmd_bind_descriptor_sets(
+                cmd, vk::PipelineBindPoint::COMPUTE, pipeline_layout, 0, &[desc_set], &[]);
+            self.device.cmd_push_constants(
+                cmd, pipeline_layout, vk::ShaderStageFlags::COMPUTE,
+                0, bytemuck::bytes_of(&pc_data));
+            self.device.cmd_dispatch(cmd, rows as u32, 1, 1);
+            self.device.end_command_buffer(cmd)?;
+        }
+
+        // --- Submit + wait ---
+        let submit_info = vk::SubmitInfo::builder().command_buffers(&[cmd]);
+        unsafe {
+            self.device.queue_submit(self.queue, &[*submit_info], vk::Fence::null())?;
+            self.device.queue_wait_idle(self.queue)?;
+        }
+
+        // --- Read back result ---
+        unsafe {
+            let ptr = self.device.map_memory(mem_x, 0, bytes_x, vk::MemoryMapFlags::empty())?;
+            std::ptr::copy_nonoverlapping(ptr as *const f32, x.as_mut_ptr(), x.len());
+            self.device.unmap_memory(mem_x);
+        }
+
+        // --- Cleanup ---
+        unsafe {
+            self.device.free_command_buffers(self.cmd_pool, &[cmd]);
+            self.device.destroy_buffer(buf_x, None);
+            self.device.free_memory(mem_x, None);
+            self.device.destroy_descriptor_pool(desc_pool, None);
+            self.device.destroy_descriptor_set_layout(desc_set_layout, None);
+            self.device.destroy_pipeline_layout(pipeline_layout, None);
+            self.device.destroy_pipeline(pipeline, None);
+        }
+
+        Ok(())
+    }
+    
     fn alloc_host_buffer(&self, size: vk::DeviceSize) -> Result<(vk::Buffer, vk::DeviceMemory)> {
         let buf_info = vk::BufferCreateInfo::builder()
             .size(size)
