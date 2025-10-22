@@ -95,3 +95,11 @@ warning: structure field `K` should have a snake case name
    |                     ^ help: convert the identifier to snake case (notice the capitalization): `k`
 
 warning: `pi5-llama` (bin "pi5-llama") generated 11 warnings (run `cargo fix --bin "pi5-llama"` to apply 2 suggestions)
+
+
+Device reports: shaderFloat16=no storageBuffer16BitAccess=YES
+FP16 pipeline NOT SUPPORTED ⚠️ (falling back to f32)
+CPU softmax: 0.005 ms
+--- GPU softmax start ---
+rows=4 cols=8 len=32
+Segmentation fault
