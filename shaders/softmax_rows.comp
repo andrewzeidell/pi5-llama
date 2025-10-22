@@ -8,40 +8,56 @@ layout(push_constant) uniform Push {
 
 layout(std430, binding = 0) buffer XBuf { float X[]; };
 
-// Compute rowwise softmax for matrix X[rows][cols]
-shared float row_max;
-shared float row_sum;
+const uint WG = 64;
+shared float s_red[WG];
 
 void main() {
     uint row = gl_GlobalInvocationID.x;
     if (row >= pc.rows) return;
 
-    // Step 1: find max
-    row_max = -3.402823e38; // -FLT_MAX
-    barrier();
+    uint lid = gl_LocalInvocationIndex;
 
-    for (uint j = gl_LocalInvocationIndex; j < pc.cols; j += gl_WorkGroupSize.x) {
+    // 1) Per-thread local max over strided elements
+    float m = -3.402823e38; // -FLT_MAX
+    for (uint j = lid; j < pc.cols; j += WG) {
         float v = X[row * pc.cols + j];
-        atomicMax((uint*)(&row_max), floatBitsToUint(v));
+        m = max(m, v);
     }
+    s_red[lid] = m;
     barrier();
 
-    float maxv = row_max;
-    row_sum = 0.0;
+    // Reduce to row max in s_red[0]
+    for (uint offset = WG >> 1; offset > 0; offset >>= 1) {
+        if (lid < offset) {
+            s_red[lid] = max(s_red[lid], s_red[lid + offset]);
+        }
+        barrier();
+    }
+    float maxv = s_red[0];
     barrier();
 
-    // Step 2: exp and accumulate sum
-    for (uint j = gl_LocalInvocationIndex; j < pc.cols; j += gl_WorkGroupSize.x) {
-        float v = X[row * pc.cols + j];
-        float ev = exp(v - maxv);
+    // 2) Exponentiate (in place) and accumulate partial sum
+    float psum = 0.0;
+    for (uint j = lid; j < pc.cols; j += WG) {
+        float ev = exp(X[row * pc.cols + j] - maxv);
         X[row * pc.cols + j] = ev;
-        atomicAdd((uint*)(&row_sum), floatBitsToUint(ev));
+        psum += ev;
     }
+    s_red[lid] = psum;
     barrier();
 
-    float sumv = row_sum;
-    // Step 3: normalize
-    for (uint j = gl_LocalInvocationIndex; j < pc.cols; j += gl_WorkGroupSize.x) {
-        X[row * pc.cols + j] /= sumv;
+    // Reduce to total sum in s_red[0]
+    for (uint offset = WG >> 1; offset > 0; offset >>= 1) {
+        if (lid < offset) {
+            s_red[lid] += s_red[lid + offset];
+        }
+        barrier();
+    }
+    float invsum = 1.0 / s_red[0];
+    barrier();
+
+    // 3) Normalize
+    for (uint j = lid; j < pc.cols; j += WG) {
+        X[row * pc.cols + j] *= invsum;
     }
 }
