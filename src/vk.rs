@@ -208,6 +208,9 @@ impl VkBackend {
     pub fn softmax_rows(&mut self, rows: usize, cols: usize, x: &mut [f32]) -> Result<()> {
         use std::fs::File;
         use std::io::Read;
+        println!("--- GPU softmax start ---");
+        println!("rows={} cols={} len={}", rows, cols, x.len());
+
 
         // --- Load the SPIR-V shader ---
         let mut file = File::open("shaders/softmax_rows.spv")?;
@@ -242,12 +245,12 @@ impl VkBackend {
             self.device.create_compute_pipelines(vk::PipelineCache::null(), &[*cp_info], None)
         }.map_err(|e| anyhow::anyhow!("softmax pipeline create failed: {:?}", e))?[0];
         unsafe { self.device.destroy_shader_module(shader_module, None) };
-
+        println!("Shader loaded");
         // --- Upload data ---
         let bytes_x = (x.len() * 4) as u64;
         let (buf_x, mem_x) = self.alloc_host_buffer(bytes_x)?;
         self.write_buffer_pod(mem_x, x)?;
-
+        println!("Buffers allocated");
         // Descriptor set
         let bindings = [vk::DescriptorSetLayoutBinding {
             binding: 0,
@@ -279,7 +282,7 @@ impl VkBackend {
             p_buffer_info: &buf_info, ..Default::default()
         };
         unsafe { self.device.update_descriptor_sets(&[write], &[]) };
-
+        println!("Descriptor set updated");
         // --- Command buffer ---
         let alloc = vk::CommandBufferAllocateInfo::builder()
             .command_pool(self.cmd_pool)
@@ -300,7 +303,7 @@ impl VkBackend {
             self.device.cmd_dispatch(cmd, rows as u32, 1, 1);
             self.device.end_command_buffer(cmd)?;
         }
-
+        println!("Command buffer recorded");
         // --- Submit + wait ---
         let cmd_bufs = [cmd];
         let submit_info = vk::SubmitInfo::builder().command_buffers(&cmd_bufs);
@@ -308,14 +311,14 @@ impl VkBackend {
             self.device.queue_submit(self.queue, &[*submit_info], vk::Fence::null())?;
             self.device.queue_wait_idle(self.queue)?;
         }
-
+        println!("Submitted");
         // --- Read back result ---
         unsafe {
             let ptr = self.device.map_memory(mem_x, 0, bytes_x, vk::MemoryMapFlags::empty())?;
             std::ptr::copy_nonoverlapping(ptr as *const f32, x.as_mut_ptr(), x.len());
             self.device.unmap_memory(mem_x);
         }
-
+        println!("Reading back result");
         // --- Cleanup ---
         unsafe {
             self.device.free_command_buffers(self.cmd_pool, &[cmd]);
