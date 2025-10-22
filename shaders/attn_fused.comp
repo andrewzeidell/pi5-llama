@@ -16,7 +16,7 @@ layout(push_constant) uniform Push {
 layout(std430, binding = 0) readonly buffer QBuf { float Q[]; };
 layout(std430, binding = 1) readonly buffer KBuf { float K[]; };
 layout(std430, binding = 2) readonly buffer VBuf { float V[]; };
-layout(std430, binding = 3) writeonly buffer OBuf { float O[]; };
+layout(std430, binding = 3) buffer OBuf { float O[]; };
 
 const uint WG = 64;
 shared float s_red[WG];   // for reductions of dot products
