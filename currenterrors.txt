@@ -1,72 +1,94 @@
-warning: unused imports: `PhysicalDevice16BitStorageFeaturesKHR`, `PhysicalDeviceFeatures2`, and `PhysicalDeviceFloat16Int8FeaturesKHR`
- --> src/vk.rs:5:5
+ --> src/main.rs:6:24
   |
-5 |     PhysicalDeviceFeatures2,
-  |     ^^^^^^^^^^^^^^^^^^^^^^^
-6 |     PhysicalDeviceFloat16Int8FeaturesKHR,
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-7 |     PhysicalDevice16BitStorageFeaturesKHR,
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6 | use backend::{Backend, MatMul, Softmax};
+  |                        ^^^^^^
   |
   = note: `#[warn(unused_imports)]` on by default
 
-warning: unused variable: `as_bytes`
-   --> src/vk.rs:261:17
+error[E0599]: no method named `softmax_rows` found for mutable reference `&mut cpu::CpuBackend` in the current scope
+  --> src/backend.rs:32:36
+   |
+32 |             Backend::Cpu(bk) => bk.softmax_rows(rows, cols, x),
+   |                                    ^^^^^^^^^^^^ method not found in `&mut cpu::CpuBackend`
+   |
+   = help: items from traits can only be used if the trait is implemented and in scope
+note: `Softmax` defines an item `softmax_rows`, perhaps you need to implement it
+  --> src/backend.rs:8:1
+   |
+ 8 | pub trait Softmax {
+   | ^^^^^^^^^^^^^^^^^
+
+error[E0716]: temporary value dropped while borrowed
+   --> src/vk.rs:234:36
     |
-261 |             let as_bytes = |ptr: *const u8, len_bytes: usize| unsafe {
+234 |             .push_constant_ranges(&[pc_range]);
+    |                                    ^^^^^^^^^^ - temporary value is freed at the end of this statement
+    |                                    |
+    |                                    creates a temporary value which is freed while still in use
+235 |         let pipeline_layout = unsafe { self.device.create_pipeline_layout(&pl_info, None)? };
+    |                                                                           -------- borrow later used here
+    |
+help: consider using a `let` binding to create a longer lived value
+    |
+233 ~         let binding = [pc_range];
+234 ~         let pl_info = vk::PipelineLayoutCreateInfo::builder()
+235 ~             .push_constant_ranges(&binding);
+    |
+
+error[E0716]: temporary value dropped while borrowed
+   --> src/vk.rs:269:27
+    |
+269 |             .set_layouts(&[desc_set_layout]);
+    |                           ^^^^^^^^^^^^^^^^^ - temporary value is freed at the end of this statement
+    |                           |
+    |                           creates a temporary value which is freed while still in use
+270 |         let desc_set = unsafe { self.device.allocate_descriptor_sets(&alloc_info)? }[0];
+    |                                                                      ----------- borrow later used here
+    |
+help: consider using a `let` binding to create a longer lived value
+    |
+267 ~         let binding = [desc_set_layout];
+268 ~         let alloc_info = vk::DescriptorSetAllocateInfo::builder()
+269 |             .descriptor_pool(desc_pool)
+270 ~             .set_layouts(&binding);
+    |
+
+error[E0716]: temporary value dropped while borrowed
+   --> src/vk.rs:302:70
+    |
+302 |         let submit_info = vk::SubmitInfo::builder().command_buffers(&[cmd]);
+    |                                                                      ^^^^^ - temporary value is freed at the end of this statement
+    |                                                                      |
+    |                                                                      creates a temporary value which is freed while still in use
+303 |         unsafe {
+304 |             self.device.queue_submit(self.queue, &[*submit_info], vk::Fence::null())?;
+    |                                                     ----------- borrow later used here
+    |
+help: consider using a `let` binding to create a longer lived value
+    |
+302 ~         let binding = [cmd];
+303 ~         let submit_info = vk::SubmitInfo::builder().command_buffers(&binding);
+    |
+
+warning: unused variable: `as_bytes`
+   --> src/vk.rs:389:17
+    |
+389 |             let as_bytes = |ptr: *const u8, len_bytes: usize| unsafe {
     |                 ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_as_bytes`
     |
     = note: `#[warn(unused_variables)]` on by default
 
-warning: trait `Softmax` is never used
- --> src/backend.rs:8:11
-  |
-8 | pub trait Softmax {
-  |           ^^^^^^^
-  |
-  = note: `#[warn(dead_code)]` on by default
-
-warning: struct `CpuBackend` is never constructed
-  --> src/backend.rs:12:12
+warning: variable does not need to be mutable
+  --> src/main.rs:13:9
    |
-12 | pub struct CpuBackend; // defined in cpu.rs (imported via crate::cpu::CpuBackend)
-   |            ^^^^^^^^^^
-
-warning: struct `VkBackend` is never constructed
-  --> src/backend.rs:13:12
+13 |     let mut data = vec![
+   |         ----^^^^
+   |         |
+   |         help: remove this `mut`
    |
-13 | pub struct VkBackend;  // defined in vk.rs  (imported via crate::vk::VkBackend)
-   |            ^^^^^^^^^
+   = note: `#[warn(unused_mut)]` on by default
 
-warning: fields `entry` and `qf_index` are never read
-  --> src/vk.rs:22:5
-   |
-21 | pub struct VkBackend {
-   |            --------- fields in this struct
-22 |     entry: Entry,
-   |     ^^^^^
-...
-27 |     qf_index: u32,
-   |     ^^^^^^^^
-
-warning: structure field `M` should have a snake case name
-  --> src/vk.rs:17:5
-   |
-17 |     M: u32, N: u32, K: u32,
-   |     ^ help: convert the identifier to snake case: `m`
-   |
-   = note: `#[warn(non_snake_case)]` on by default
-
-warning: structure field `N` should have a snake case name
-  --> src/vk.rs:17:13
-   |
-17 |     M: u32, N: u32, K: u32,
-   |             ^ help: convert the identifier to snake case: `n`
-
-warning: structure field `K` should have a snake case name
-  --> src/vk.rs:17:21
-   |
-17 |     M: u32, N: u32, K: u32,
-   |                     ^ help: convert the identifier to snake case (notice the capitalization): `k`
-
-warning: `pi5-llama` (bin "pi5-llama") generated 9 warnings (run `cargo fix --bin "pi5-llama"` to apply 1 suggestion)
+Some errors have detailed explanations: E0599, E0716.
+For more information about an error, try `rustc --explain E0599`.
+warning: `pi5-llama` (bin "pi5-llama") generated 3 warnings
+error: could not compile `pi5-llama` (bin "pi5-llama") due to 4 previous errors; 3 warnings emitted
