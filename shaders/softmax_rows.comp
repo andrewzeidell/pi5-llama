@@ -12,7 +12,8 @@ const uint WG = 64;
 shared float s_red[WG];
 
 void main() {
-    uint row = gl_GlobalInvocationID.x;
+    // Each WORKGROUP handles exactly one row
+    uint row = gl_WorkGroupID.x;
     if (row >= pc.rows) return;
 
     uint lid = gl_LocalInvocationIndex;
