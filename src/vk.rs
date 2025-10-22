@@ -256,7 +256,7 @@ impl VkBackend {
         Ok(Self {
             entry, instance, phys, device, queue, qf_index,
             pipeline_layout, pipeline, cmd_pool,
-            desc_set_layout, desc_pool, query_pool, use_f16,
+            desc_set_layout, desc_pool, query_pool, 
         
             // new persistent resources (initialize to None)
             pipeline_fused: None,
