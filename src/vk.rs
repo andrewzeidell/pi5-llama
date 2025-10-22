@@ -278,6 +278,7 @@ impl VkBackend {
         self.write_buffer_pod(mem_x, x)?;
         println!("Buffers allocated");
 		
+		
         // Descriptor set
         let bindings = [vk::DescriptorSetLayoutBinding {
             binding: 0,
