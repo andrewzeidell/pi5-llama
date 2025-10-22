@@ -95,11 +95,11 @@ impl VkBackend {
         // ─── 4. Descriptor pool ─────────────────────────────────────
         let pool_sizes = [vk::DescriptorPoolSize {
             ty: vk::DescriptorType::STORAGE_BUFFER,
-            descriptor_count: 4,
+            descriptor_count: 16,
         }];
         let dp_info = vk::DescriptorPoolCreateInfo::builder()
             .pool_sizes(&pool_sizes)
-            .max_sets(1);
+            .max_sets(4);
         let dp = unsafe { self.device.create_descriptor_pool(&dp_info, None)? };
 
         // ─── 5. Persistent buffers ──────────────────────────────────
@@ -335,6 +335,9 @@ impl VkBackend {
     
         // Descriptor set
         let set_layouts = [self.desc_set_layout_fused.unwrap()];
+
+        unsafe { dev.reset_descriptor_pool(self.desc_pool_fused.unwrap(), vk::DescriptorPoolResetFlags::empty())?; }
+        
         let alloc_info = vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(self.desc_pool_fused.unwrap())
             .set_layouts(&set_layouts);
