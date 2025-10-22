@@ -26,9 +26,131 @@ pub struct VkBackend {
     query_pool: vk::QueryPool,
     desc_set_layout: vk::DescriptorSetLayout,
     desc_pool: vk::DescriptorPool,
+
+    pipeline_fused: Option<vk::Pipeline>,
+    pipeline_layout_fused: Option<vk::PipelineLayout>,
+    desc_set_layout_fused: Option<vk::DescriptorSetLayout>,
+    desc_pool_fused: Option<vk::DescriptorPool>,
+
+    buf_q: Option<vk::Buffer>,
+    mem_q: Option<vk::DeviceMemory>,
+    buf_k: Option<vk::Buffer>,
+    mem_k: Option<vk::DeviceMemory>,
+    buf_v: Option<vk::Buffer>,
+    mem_v: Option<vk::DeviceMemory>,
+    buf_o: Option<vk::Buffer>,
+    mem_o: Option<vk::DeviceMemory>,
 }
 
 impl VkBackend {
+    pub fn init_attention_fused(&mut self, m: usize, n: usize, d: usize, dv: usize) -> anyhow::Result<()> {
+        use std::ffi::CString;
+        use std::mem::size_of;
+
+        // ─── 1. Descriptor set layout ───────────────────────────────
+        let mk_binding = |binding: u32| vk::DescriptorSetLayoutBinding {
+            binding,
+            descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+            descriptor_count: 1,
+            stage_flags: vk::ShaderStageFlags::COMPUTE,
+            p_immutable_samplers: std::ptr::null(),
+        };
+        let bindings = [mk_binding(0), mk_binding(1), mk_binding(2), mk_binding(3)];
+        let dsl_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
+        let dsl = unsafe { self.device.create_descriptor_set_layout(&dsl_info, None)? };
+
+        // ─── 2. Pipeline layout + push constants ─────────────────────
+        #[repr(C)]
+        struct PC { m: u32, n: u32, d: u32, dv: u32 }
+        let pc_range = vk::PushConstantRange {
+            stage_flags: vk::ShaderStageFlags::COMPUTE,
+            offset: 0,
+            size: size_of::<PC>() as u32,
+        };
+        let layouts = [dsl];
+        let pc_ranges = [pc_range];
+        let pl_info = vk::PipelineLayoutCreateInfo::builder()
+            .set_layouts(&layouts)
+            .push_constant_ranges(&pc_ranges);
+        let pl = unsafe { self.device.create_pipeline_layout(&pl_info, None)? };
+
+        // ─── 3. Shader module + pipeline ─────────────────────────────
+        let spirv_bytes: &[u8] = include_bytes!("../shaders/attn_fused.spv");
+        let (_, words, _) = unsafe { spirv_bytes.align_to::<u32>() };
+        let sm_info = vk::ShaderModuleCreateInfo::builder().code(words);
+        let shader_module = unsafe { self.device.create_shader_module(&sm_info, None)? };
+        let entry_point = CString::new("main")?;
+        let stage_info = vk::PipelineShaderStageCreateInfo::builder()
+            .stage(vk::ShaderStageFlags::COMPUTE)
+            .module(shader_module)
+            .name(&entry_point);
+        let cp_info = vk::ComputePipelineCreateInfo::builder()
+            .stage(*stage_info)
+            .layout(pl);
+        let pipeline = unsafe {
+            self.device.create_compute_pipelines(vk::PipelineCache::null(), &[*cp_info], None)
+        }.map_err(|e| anyhow::anyhow!("pipeline create failed: {:?}", e))?[0];
+        unsafe { self.device.destroy_shader_module(shader_module, None) };
+
+        // ─── 4. Descriptor pool ─────────────────────────────────────
+        let pool_sizes = [vk::DescriptorPoolSize {
+            ty: vk::DescriptorType::STORAGE_BUFFER,
+            descriptor_count: 4,
+        }];
+        let dp_info = vk::DescriptorPoolCreateInfo::builder()
+            .pool_sizes(&pool_sizes)
+            .max_sets(1);
+        let dp = unsafe { self.device.create_descriptor_pool(&dp_info, None)? };
+
+        // ─── 5. Persistent buffers ──────────────────────────────────
+        let alloc_buf = |sz| -> anyhow::Result<(vk::Buffer, vk::DeviceMemory)> {
+            let buf_info = vk::BufferCreateInfo::builder()
+                .size(sz)
+                .usage(vk::BufferUsageFlags::STORAGE_BUFFER)
+                .sharing_mode(vk::SharingMode::EXCLUSIVE);
+            let buf = unsafe { self.device.create_buffer(&buf_info, None)? };
+            let mem_req = unsafe { self.device.get_buffer_memory_requirements(buf) };
+            let mem_props = unsafe { self.instance.get_physical_device_memory_properties(self.phys) };
+            let mem_type = (0..mem_props.memory_type_count)
+                .find(|&i| {
+                    let mt = mem_props.memory_types[i as usize];
+                    (mem_req.memory_type_bits & (1 << i)) != 0 &&
+                    mt.property_flags.contains(vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT)
+                })
+                .context("no HOST_VISIBLE|HOST_COHERENT memory type")?;
+            let alloc = vk::MemoryAllocateInfo {
+                allocation_size: mem_req.size,
+                memory_type_index: mem_type,
+                ..Default::default()
+            };
+            let mem = unsafe { self.device.allocate_memory(&alloc, None)? };
+            unsafe { self.device.bind_buffer_memory(buf, mem, 0)? };
+            Ok((buf, mem))
+        };
+
+        let bytes_q = (m * d * 4) as u64;
+        let bytes_k = (n * d * 4) as u64;
+        let bytes_v = (n * dv * 4) as u64;
+        let bytes_o = (m * dv * 4) as u64;
+
+        let (buf_q, mem_q) = alloc_buf(bytes_q)?;
+        let (buf_k, mem_k) = alloc_buf(bytes_k)?;
+        let (buf_v, mem_v) = alloc_buf(bytes_v)?;
+        let (buf_o, mem_o) = alloc_buf(bytes_o)?;
+
+        // ─── Save ───────────────────────────────────────────────────
+        self.pipeline_fused = Some(pipeline);
+        self.pipeline_layout_fused = Some(pl);
+        self.desc_set_layout_fused = Some(dsl);
+        self.desc_pool_fused = Some(dp);
+        self.buf_q = Some(buf_q); self.mem_q = Some(mem_q);
+        self.buf_k = Some(buf_k); self.mem_k = Some(mem_k);
+        self.buf_v = Some(buf_v); self.mem_v = Some(mem_v);
+        self.buf_o = Some(buf_o); self.mem_o = Some(mem_o);
+
+        Ok(())
+    }
+}
     pub fn new() -> Result<Self> {
         let entry = unsafe { Entry::load().context("load Vulkan entry")? };
         let app_name = CString::new("pi5-llama")?;
@@ -189,204 +311,85 @@ impl VkBackend {
     }
     pub fn attention_fused(
         &mut self,
-        m: usize,          // queries
-        n: usize,          // keys/values
-        d: usize,          // head dim
-        dv: usize,         // value dim (output dim)
-        q: &[f32],         // len m*d
-        k: &[f32],         // len n*d
-        v: &[f32],         // len n*dv
-        o: &mut [f32],     // len m*dv (output)
-    ) -> Result<()> {
-        use std::fs::File;
-        use std::io::Read;
+        m: usize, n: usize, d: usize, dv: usize,
+        q: &[f32], k: &[f32], v: &[f32], o: &mut [f32],
+    ) -> anyhow::Result<()> {
+        let dev = &self.device;
     
-        // ---------- guards ----------
-        assert_eq!(q.len(), m * d,  "Q shape mismatch");
-        assert_eq!(k.len(), n * d,  "K shape mismatch");
-        assert_eq!(v.len(), n * dv, "V shape mismatch");
-        assert_eq!(o.len(), m * dv, "O shape mismatch");
+        // Upload Q, K, V
+        unsafe {
+            let map = |mem: vk::DeviceMemory, data: &[f32]| -> anyhow::Result<()> {
+                let ptr = dev.map_memory(mem, 0, (data.len()*4) as u64, vk::MemoryMapFlags::empty())?;
+                std::ptr::copy_nonoverlapping(data.as_ptr(), ptr as *mut f32, data.len());
+                dev.unmap_memory(mem);
+                Ok(())
+            };
+            map(self.mem_q.unwrap(), q)?;
+            map(self.mem_k.unwrap(), k)?;
+            map(self.mem_v.unwrap(), v)?;
+        }
     
-        // ---------- load shader ----------
-        let mut f = File::open("shaders/attn_fused.spv")?;
-        let mut bytes = Vec::new();
-        f.read_to_end(&mut bytes)?;
-        assert!(bytes.len() % 4 == 0);
-        let words = unsafe {
-            std::slice::from_raw_parts(bytes.as_ptr() as *const u32, bytes.len() / 4)
-        };
-    
-        let sm_info = vk::ShaderModuleCreateInfo::builder().code(words);
-        let shader_module = unsafe { self.device.create_shader_module(&sm_info, None)? };
-    
-        // ---------- descriptor set layout (Q,K,V,O @ bindings 0..3) ----------
-        let mk_binding = |binding: u32| vk::DescriptorSetLayoutBinding {
-            binding,
-            descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
-            descriptor_count: 1,
-            stage_flags: vk::ShaderStageFlags::COMPUTE,
-            p_immutable_samplers: std::ptr::null(),
-        };
-        let bindings = [mk_binding(0), mk_binding(1), mk_binding(2), mk_binding(3)];
-        let dsl_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
-        let dsl = unsafe { self.device.create_descriptor_set_layout(&dsl_info, None)? };
-    
-        // ---------- pipeline layout (push constants + dsl) ----------
-        // Push = [M,N,D,Dv,ldq,ldk,ldv,ldo] = 8 * u32 = 32 bytes
-        let pc_range = vk::PushConstantRange {
-            stage_flags: vk::ShaderStageFlags::COMPUTE,
-            offset: 0,
-            size: 32,
-        };
-        let pc_ranges = [pc_range];
-        let set_layouts = [dsl];
-        let pl_info = vk::PipelineLayoutCreateInfo::builder()
-            .set_layouts(&set_layouts)
-            .push_constant_ranges(&pc_ranges);
-        let pipeline_layout = unsafe { self.device.create_pipeline_layout(&pl_info, None)? };
-    
-        // ---------- pipeline ----------
-        let entry = std::ffi::CString::new("main")?;
-        let stage = vk::PipelineShaderStageCreateInfo::builder()
-            .stage(vk::ShaderStageFlags::COMPUTE)
-            .module(shader_module)
-            .name(&entry);
-        let cp_info = vk::ComputePipelineCreateInfo::builder()
-            .stage(*stage)
-            .layout(pipeline_layout);
-        let pipeline = unsafe {
-            self.device.create_compute_pipelines(vk::PipelineCache::null(), &[*cp_info], None)
-        }.map_err(|e| anyhow::anyhow!("attention pipeline create failed: {:?}", e))?[0];
-        unsafe { self.device.destroy_shader_module(shader_module, None) };
-    
-        // ---------- buffers ----------
-        let bytes_q = (q.len() * 4) as u64;
-        let bytes_k = (k.len() * 4) as u64;
-        let bytes_v = (v.len() * 4) as u64;
-        let bytes_o = (o.len() * 4) as u64;
-    
-        let (buf_q, mem_q) = self.alloc_host_buffer(bytes_q)?;
-        let (buf_k, mem_k) = self.alloc_host_buffer(bytes_k)?;
-        let (buf_v, mem_v) = self.alloc_host_buffer(bytes_v)?;
-        let (buf_o, mem_o) = self.alloc_host_buffer(bytes_o)?;
-    
-        self.write_buffer_pod(mem_q, q)?;
-        self.write_buffer_pod(mem_k, k)?;
-        self.write_buffer_pod(mem_v, v)?;
-    
-        // zero-fill O (accumulator starts from 0)
-        let zeros = vec![0f32; o.len()];
-        self.write_buffer_pod(mem_o, &zeros)?;
-    
-        // ---------- descriptor pool + set ----------
-        let pool_sizes = [vk::DescriptorPoolSize {
-            ty: vk::DescriptorType::STORAGE_BUFFER,
-            descriptor_count: 4,
-        }];
-        let dp_info = vk::DescriptorPoolCreateInfo::builder()
-            .pool_sizes(&pool_sizes)
-            .max_sets(1);
-        let dpool = unsafe { self.device.create_descriptor_pool(&dp_info, None)? };
-    
-        let set_layouts = [dsl];
+        // Descriptor set
+        let set_layouts = [self.desc_set_layout_fused.unwrap()];
         let alloc_info = vk::DescriptorSetAllocateInfo::builder()
-            .descriptor_pool(dpool)
+            .descriptor_pool(self.desc_pool_fused.unwrap())
             .set_layouts(&set_layouts);
-        let dset = unsafe { self.device.allocate_descriptor_sets(&alloc_info)? }[0];
+        let desc_set = unsafe { dev.allocate_descriptor_sets(&alloc_info)? }[0];
     
-        let infos = [
-            vk::DescriptorBufferInfo { buffer: buf_q, offset: 0, range: bytes_q },
-            vk::DescriptorBufferInfo { buffer: buf_k, offset: 0, range: bytes_k },
-            vk::DescriptorBufferInfo { buffer: buf_v, offset: 0, range: bytes_v },
-            vk::DescriptorBufferInfo { buffer: buf_o, offset: 0, range: bytes_o },
+        let descs = [
+            vk::DescriptorBufferInfo { buffer: self.buf_q.unwrap(), offset: 0, range: (q.len()*4) as u64 },
+            vk::DescriptorBufferInfo { buffer: self.buf_k.unwrap(), offset: 0, range: (k.len()*4) as u64 },
+            vk::DescriptorBufferInfo { buffer: self.buf_v.unwrap(), offset: 0, range: (v.len()*4) as u64 },
+            vk::DescriptorBufferInfo { buffer: self.buf_o.unwrap(), offset: 0, range: (o.len()*4) as u64 },
         ];
-        let writes = [
-            vk::WriteDescriptorSet {
-                dst_set: dset, dst_binding: 0, descriptor_count: 1,
-                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
-                p_buffer_info: &infos[0], ..Default::default()
-            },
-            vk::WriteDescriptorSet {
-                dst_set: dset, dst_binding: 1, descriptor_count: 1,
-                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
-                p_buffer_info: &infos[1], ..Default::default()
-            },
-            vk::WriteDescriptorSet {
-                dst_set: dset, dst_binding: 2, descriptor_count: 1,
-                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
-                p_buffer_info: &infos[2], ..Default::default()
-            },
-            vk::WriteDescriptorSet {
-                dst_set: dset, dst_binding: 3, descriptor_count: 1,
-                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
-                p_buffer_info: &infos[3], ..Default::default()
-            },
-        ];
-        unsafe { self.device.update_descriptor_sets(&writes, &[]) };
+        let writes: Vec<vk::WriteDescriptorSet> = (0..4).map(|i| vk::WriteDescriptorSet {
+            dst_set: desc_set,
+            dst_binding: i,
+            descriptor_count: 1,
+            descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+            p_buffer_info: &descs[i as usize],
+            ..Default::default()
+        }).collect();
+        unsafe { dev.update_descriptor_sets(&writes, &[]) };
     
-        // ---------- command buffer ----------
+        // Command buffer record
         let alloc = vk::CommandBufferAllocateInfo::builder()
             .command_pool(self.cmd_pool)
             .level(vk::CommandBufferLevel::PRIMARY)
             .command_buffer_count(1);
-        let cmd = unsafe { self.device.allocate_command_buffers(&alloc)? }[0];
-    
+        let cmd = unsafe { dev.allocate_command_buffers(&alloc)? }[0];
         let begin = vk::CommandBufferBeginInfo::builder();
-        // Push constants: [M,N,D,Dv,ldq,ldk,ldv,ldo]
-        let pc = [
-            m as u32, n as u32, d as u32, dv as u32,
-            d as u32, d as u32, dv as u32, dv as u32,
-        ];
         unsafe {
-            self.device.begin_command_buffer(cmd, &begin)?;
-            self.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, pipeline);
-            self.device.cmd_bind_descriptor_sets(
-                cmd, vk::PipelineBindPoint::COMPUTE, pipeline_layout, 0, &[dset], &[]);
-            self.device.cmd_push_constants(
-                cmd, pipeline_layout, vk::ShaderStageFlags::COMPUTE, 0, bytemuck::bytes_of(&pc));
-    
-            // one WG per query row (shader uses gl_WorkGroupID.x)
-            self.device.cmd_dispatch(cmd, m as u32, 1, 1);
-    
-            self.device.end_command_buffer(cmd)?;
+            dev.begin_command_buffer(cmd, &begin)?;
+            dev.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, self.pipeline_fused.unwrap());
+            dev.cmd_bind_descriptor_sets(
+                cmd, vk::PipelineBindPoint::COMPUTE, self.pipeline_layout_fused.unwrap(), 0, &[desc_set], &[]);
+            let pc = [m as u32, n as u32, d as u32, dv as u32];
+            dev.cmd_push_constants(
+                cmd, self.pipeline_layout_fused.unwrap(), vk::ShaderStageFlags::COMPUTE,
+                0, bytemuck::cast_slice(&pc));
+            dev.cmd_dispatch(cmd, m as u32, 1, 1);
+            dev.end_command_buffer(cmd)?;
         }
     
-        // ---------- submit + wait ----------
-        let cmd_bufs = [cmd];
-        let submit = vk::SubmitInfo::builder().command_buffers(&cmd_bufs);
+        // Submit and wait
+        let submit_info = vk::SubmitInfo::builder().command_buffers(&[cmd]);
         unsafe {
-            self.device.queue_submit(self.queue, &[*submit], vk::Fence::null())?;
-            self.device.queue_wait_idle(self.queue)?;
+            dev.queue_submit(self.queue, &[*submit_info], vk::Fence::null())?;
+            dev.queue_wait_idle(self.queue)?;
         }
     
-        // ---------- readback ----------
+        // Read back O
         unsafe {
-            let ptr = self.device.map_memory(mem_o, 0, bytes_o, vk::MemoryMapFlags::empty())?;
+            let ptr = dev.map_memory(self.mem_o.unwrap(), 0, (o.len()*4) as u64, vk::MemoryMapFlags::empty())?;
             std::ptr::copy_nonoverlapping(ptr as *const f32, o.as_mut_ptr(), o.len());
-            self.device.unmap_memory(mem_o);
+            dev.unmap_memory(self.mem_o.unwrap());
         }
     
-        // ---------- cleanup ----------
-        unsafe {
-            self.device.free_command_buffers(self.cmd_pool, &[cmd]);
-            self.device.destroy_descriptor_pool(dpool, None);
-            self.device.destroy_descriptor_set_layout(dsl, None);
-            self.device.destroy_pipeline_layout(pipeline_layout, None);
-            self.device.destroy_pipeline(pipeline, None);
-    
-            self.device.destroy_buffer(buf_q, None);
-            self.device.free_memory(mem_q, None);
-            self.device.destroy_buffer(buf_k, None);
-            self.device.free_memory(mem_k, None);
-            self.device.destroy_buffer(buf_v, None);
-            self.device.free_memory(mem_v, None);
-            self.device.destroy_buffer(buf_o, None);
-            self.device.free_memory(mem_o, None);
-        }
-    
+        // Clean up descriptor set (pool is reused)
+        unsafe { dev.free_command_buffers(self.cmd_pool, &[cmd]) };
         Ok(())
     }
-
 }
 
 // -----------------------------------------------------
