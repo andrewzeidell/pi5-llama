@@ -126,10 +126,24 @@ fn main() -> Result<()> {
         let t_cpu = t0.elapsed().as_secs_f64() * 1e3;
     
         // ---- GPU fused timing ----
+        // ---- GPU fused timing ----
         let mut backend = backend::Backend::Vk(crate::vk::VkBackend::new()?);
-        let t1 = Instant::now();
-        backend.attention_fused(m, n, d, dv, &q, &k, &v, &mut o_gpu)?;
-        let t_gpu = t1.elapsed().as_secs_f64() * 1e3;
+        
+        // Initialize persistent fused attention pipeline + buffers
+        if let backend::Backend::Vk(ref mut vk_backend) = backend {
+            vk_backend.init_attention_fused(m, n, d, dv)?;
+        }
+        
+        // Run multiple GPU passes to show consistent reuse timing
+        use std::time::Instant;
+        let runs = 3;
+        let mut t_gpu_total = 0.0;
+        for _ in 0..runs {
+            let t1 = Instant::now();
+            backend.attention_fused(m, n, d, dv, &q, &k, &v, &mut o_gpu)?;
+            t_gpu_total += t1.elapsed().as_secs_f64() * 1e3;
+        }
+        let t_gpu = t_gpu_total / (runs as f64);
     
         // ---- Compare ----
         let diff = o_cpu.iter().zip(&o_gpu)
