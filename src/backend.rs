@@ -34,3 +34,23 @@ impl Softmax for Backend {
         }
     }
 }
+impl Backend {
+    pub fn attention_fused(
+        &mut self,
+        m: usize,
+        n: usize,
+        d: usize,
+        dv: usize,
+        q: &[f32],
+        k: &[f32],
+        v: &[f32],
+        o: &mut [f32],
+    ) -> anyhow::Result<()> {
+        match self {
+            Backend::Cpu(_) => {
+                anyhow::bail!("CPU backend does not implement fused attention yet")
+            }
+            Backend::Vk(bk) => bk.attention_fused(m, n, d, dv, q, k, v, o),
+        }
+    }
+}
