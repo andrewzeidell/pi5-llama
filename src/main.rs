@@ -105,7 +105,7 @@ fn main() -> Result<()> {
         return Ok(());
     }
     if args.len() >= 2 && args[1] == "bench_fused" {
-        use std::time::Instant;
+        
         let m = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(128);
         let n = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(128);
         let d = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(64);
