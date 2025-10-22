@@ -56,6 +56,22 @@ fn main() -> Result<()> {
         println!("Running softmax rows={} cols={} iters={}", rows, cols, iters);
         return bench_softmax(rows, cols, iters);
     }
+    if args.len() >= 2 && args[1] == "fused" {
+        let m = 4usize;    // queries
+        let n = 8usize;    // keys/values
+        let d = 32usize;   // head dim
+        let dv = 32usize;  // value dim
+    
+        let q: Vec<f32> = (0..m*d).map(|i| (i as f32).sin()*0.1).collect();
+        let k: Vec<f32> = (0..n*d).map(|i| (i as f32).cos()*0.1).collect();
+        let v: Vec<f32> = (0..n*dv).map(|i| ((i%17) as f32)*0.01).collect();
+        let mut o = vec![0.0f32; m*dv];
+    
+        let mut gpu = Backend::Vk(VkBackend::new()?);
+        gpu.attention_fused(m, n, d, dv, &q, &k, &v, &mut o)?;
+        println!("O[0..8] = {:?}", &o[..o.len().min(8)]);
+        return Ok(());
+    }
 
     println!("Usage:");
     println!("  cargo run --release -- softmax <rows> <cols> <iters>");
