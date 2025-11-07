@@ -1,0 +1,35 @@
+// GELU Compute Shader
+// Applies GELU(x) = 0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
+// Each invocation handles one element
+//
+// layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+// Input: buffer X [rows * cols]
+// Output: buffer Y [rows * cols]
+
+#version 450
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(push_constant) uniform PushConsts {
+    uint rows;
+    uint cols;
+} pc;
+
+layout(std430, binding = 0) readonly buffer InBuffer {
+    float x[];
+};
+
+layout(std430, binding = 1) writeonly buffer OutBuffer {
+    float y[];
+};
+
+void main() {
+    uint gid = gl_GlobalInvocationID.x;
+    uint total = pc.rows * pc.cols;
+    if (gid >= total) return;
+
+    float val = x[gid];
+    const float SQRT_2_OVER_PI = 0.7978845608; // sqrt(2/pi)
+    float inner = SQRT_2_OVER_PI * (val + 0.044715 * val * val * val);
+    float result = 0.5 * val * (1.0 + tanh(inner));
+    y[gid] = result;
+}

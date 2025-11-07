@@ -34,6 +34,31 @@ impl Softmax for Backend {
         }
     }
 }
+
+pub trait LayerNorm {
+    fn layernorm(&mut self, rows: usize, cols: usize, x: &mut [f32]) -> Result<()>;
+}
+pub trait Gelu {
+    fn gelu(&mut self, rows: usize, cols: usize, x: &mut [f32]) -> Result<()>;
+}
+
+impl LayerNorm for Backend {
+    fn layernorm(&mut self, rows: usize, cols: usize, x: &mut [f32]) -> Result<()> {
+        match self {
+            Backend::Cpu(_) => anyhow::bail!("CPU backend missing LayerNorm"),
+            Backend::Vk(bk) => bk.layernorm(rows, cols, x),
+        }
+    }
+}
+
+impl Gelu for Backend {
+    fn gelu(&mut self, rows: usize, cols: usize, x: &mut [f32]) -> Result<()> {
+        match self {
+            Backend::Cpu(_) => anyhow::bail!("CPU backend missing GELU"),
+            Backend::Vk(bk) => bk.gelu(rows, cols, x),
+        }
+    }
+}
 impl Backend {
     pub fn attention_fused(
         &mut self,

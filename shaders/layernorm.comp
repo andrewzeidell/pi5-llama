@@ -1,0 +1,81 @@
+// LayerNorm Compute Shader
+// Each workgroup handles one row: normalize input x[row, col]
+// Parameters: epsilon (1e-5)
+//
+// layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+// Input: buffer X (rows * cols)
+// Output: buffer Y (rows * cols)
+
+#version 450
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(push_constant) uniform PushConsts {
+    uint rows;
+    uint cols;
+    float epsilon;
+} pc;
+
+layout(std430, binding = 0) readonly buffer InBuffer {
+    float x[];
+};
+
+layout(std430, binding = 1) writeonly buffer OutBuffer {
+    float y[];
+};
+
+shared float sdata[256];
+
+void main() {
+    uint row = gl_WorkGroupID.x;
+    uint tid = gl_LocalInvocationID.x;
+    uint cols = pc.cols;
+    uint offset = row * cols;
+
+    // Compute mean
+    float sum = 0.0;
+    for (uint i = tid; i < cols; i += gl_WorkGroupSize.x) {
+        sum += x[offset + i];
+    }
+
+    sdata[tid] = sum;
+    barrier();
+
+    // reduction for mean
+    for (uint stride = gl_WorkGroupSize.x / 2; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            sdata[tid] += sdata[tid + stride];
+        }
+        barrier();
+    }
+
+    float mean = sdata[0] / float(cols);
+    barrier();
+
+    // compute variance
+    float var_sum = 0.0;
+    for (uint i = tid; i < cols; i += gl_WorkGroupSize.x) {
+        float diff = x[offset + i] - mean;
+        var_sum += diff * diff;
+    }
+
+    sdata[tid] = var_sum;
+    barrier();
+
+    for (uint stride = gl_WorkGroupSize.x / 2; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            sdata[tid] += sdata[tid + stride];
+        }
+        barrier();
+    }
+
+    float variance = sdata[0] / float(cols);
+    float inv_std = inversesqrt(variance + pc.epsilon);
+
+    barrier();
+
+    // normalize
+    for (uint i = tid; i < cols; i += gl_WorkGroupSize.x) {
+        float norm = (x[offset + i] - mean) * inv_std;
+        y[offset + i] = norm;
+    }
+}

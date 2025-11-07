@@ -157,8 +157,42 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    if args.len() >= 2 && args[1] == "layernorm_test" {
+        use rand::Rng;
+        use backend::LayerNorm;
+        let rows: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(8);
+        let cols: usize = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(16);
+        let mut rng = rand::thread_rng();
+        let mut x_cpu: Vec<f32> = (0..rows * cols).map(|_| rng.gen::<f32>() * 2.0 - 1.0).collect();
+        let mut x_gpu = x_cpu.clone();
+
+        // CPU reference
+        let mut x_ref = vec![0.0f32; x_cpu.len()];
+        for r in 0..rows {
+            let offset = r * cols;
+            let slice = &x_cpu[offset..offset + cols];
+            let mean = slice.iter().sum::<f32>() / cols as f32;
+            let var = slice.iter().map(|&v| (v - mean).powi(2)).sum::<f32>() / cols as f32;
+            let inv_std = 1.0 / (var + 1e-5).sqrt();
+            for c in 0..cols {
+                x_ref[offset + c] = (slice[c] - mean) * inv_std;
+            }
+        }
+
+        // GPU run
+        let mut gpu = Backend::Vk(VkBackend::new()?);
+        gpu.layernorm(rows, cols, &mut x_gpu)?;
+
+        // Diff
+        let diff = x_gpu.iter().zip(&x_ref).map(|(a,b)| (a-b).abs()).fold(0.0, f32::max);
+        println!("LayerNorm GPU-CPU max abs diff: {:.6}", diff);
+        println!("First row GPU {:?}", &x_gpu[..cols.min(8)]);
+        return Ok(());
+    }
+
     println!("Usage:");
     println!("  cargo run --release -- softmax <rows> <cols> <iters>");
+    println!("  cargo run --release -- layernorm_test");
     println!("Example:");
     println!("  cargo run --release -- softmax 2048 512 10");
     Ok(())

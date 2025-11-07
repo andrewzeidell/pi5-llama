@@ -625,3 +625,157 @@ impl Softmax for VkBackend {
         Ok(())
     }
 }
+ 
+impl VkBackend {
+    pub fn layernorm(&mut self, rows: usize, cols: usize, x: &mut [f32]) -> Result<()> {
+        use std::fs::File;
+        use std::io::Read;
+        assert_eq!(x.len(), rows * cols, "layernorm: invalid shape");
+        let mut file = File::open("shaders/layernorm.spv")?;
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes)?;
+        assert!(bytes.len() % 4 == 0);
+        let words = unsafe { std::slice::from_raw_parts(bytes.as_ptr() as *const u32, bytes.len() / 4) };
+        let sm_info = vk::ShaderModuleCreateInfo::builder().code(words);
+        let shader_module = unsafe { self.device.create_shader_module(&sm_info, None)? };
+        let binding0 = vk::DescriptorSetLayoutBinding {
+            binding: 0,
+            descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+            descriptor_count: 1,
+            stage_flags: vk::ShaderStageFlags::COMPUTE,
+            p_immutable_samplers: std::ptr::null(),
+        };
+        let binding1 = vk::DescriptorSetLayoutBinding { binding: 1, descriptor_type: vk::DescriptorType::STORAGE_BUFFER, descriptor_count: 1, stage_flags: vk::ShaderStageFlags::COMPUTE, p_immutable_samplers: std::ptr::null() };
+        let bindings = [binding0, binding1];
+        let dsl_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
+        let dsl = unsafe { self.device.create_descriptor_set_layout(&dsl_info, None)? };
+        let pc_range = vk::PushConstantRange { stage_flags: vk::ShaderStageFlags::COMPUTE, offset: 0, size: 12 };
+        let set_layouts = [dsl];
+        let pl_info = vk::PipelineLayoutCreateInfo::builder().set_layouts(&set_layouts).push_constant_ranges(&[pc_range]);
+        let pipeline_layout = unsafe { self.device.create_pipeline_layout(&pl_info, None)? };
+        let entry_point = CString::new("main")?;
+        let stage_info = vk::PipelineShaderStageCreateInfo::builder().stage(vk::ShaderStageFlags::COMPUTE).module(shader_module).name(&entry_point);
+        let cp_info = vk::ComputePipelineCreateInfo::builder().stage(*stage_info).layout(pipeline_layout);
+        let pipeline = unsafe { self.device.create_compute_pipelines(vk::PipelineCache::null(), &[*cp_info], None) }.map_err(|e| anyhow::anyhow!("layernorm pipeline create failed: {:?}", e))?[0];
+        unsafe { self.device.destroy_shader_module(shader_module, None) };
+        let bytes = (x.len() * 4) as u64;
+        let (buf_in, mem_in) = self.alloc_host_buffer(bytes)?;
+        let (buf_out, mem_out) = self.alloc_host_buffer(bytes)?;
+        self.write_buffer_pod(mem_in, x)?;
+        let pool_sizes = [vk::DescriptorPoolSize { ty: vk::DescriptorType::STORAGE_BUFFER, descriptor_count: 2 }];
+        let dp_info = vk::DescriptorPoolCreateInfo::builder().pool_sizes(&pool_sizes).max_sets(1);
+        let dpool = unsafe { self.device.create_descriptor_pool(&dp_info, None)? };
+        let set_layouts = [dsl];
+        let alloc_info = vk::DescriptorSetAllocateInfo::builder().descriptor_pool(dpool).set_layouts(&set_layouts);
+        let dset = unsafe { self.device.allocate_descriptor_sets(&alloc_info)? }[0];
+        let infos = [vk::DescriptorBufferInfo { buffer: buf_in, offset: 0, range: bytes }, vk::DescriptorBufferInfo { buffer: buf_out, offset: 0, range: bytes }];
+        let writes = [vk::WriteDescriptorSet { dst_set: dset, dst_binding: 0, descriptor_count: 1, descriptor_type: vk::DescriptorType::STORAGE_BUFFER, p_buffer_info: &infos[0], ..Default::default() }, vk::WriteDescriptorSet { dst_set: dset, dst_binding: 1, descriptor_count: 1, descriptor_type: vk::DescriptorType::STORAGE_BUFFER, p_buffer_info: &infos[1], ..Default::default() }];
+        unsafe { self.device.update_descriptor_sets(&writes, &[]) };
+        let alloc = vk::CommandBufferAllocateInfo::builder().command_pool(self.cmd_pool).level(vk::CommandBufferLevel::PRIMARY).command_buffer_count(1);
+        let cmd = unsafe { self.device.allocate_command_buffers(&alloc)? }[0];
+        let begin = vk::CommandBufferBeginInfo::builder();
+        let pc_data = [rows as u32, cols as u32, f32::to_bits(1e-5)];
+        unsafe {
+            self.device.begin_command_buffer(cmd, &begin)?;
+            self.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, pipeline);
+            self.device.cmd_bind_descriptor_sets(cmd, vk::PipelineBindPoint::COMPUTE, pipeline_layout, 0, &[dset], &[]);
+            self.device.cmd_push_constants(cmd, pipeline_layout, vk::ShaderStageFlags::COMPUTE, 0, bytemuck::bytes_of(&pc_data));
+            self.device.cmd_dispatch(cmd, rows as u32, 1, 1);
+            self.device.end_command_buffer(cmd)?;
+        }
+        let cmd_bufs = [cmd];
+        let submit_info = vk::SubmitInfo::builder().command_buffers(&cmd_bufs);
+        unsafe { self.device.queue_submit(self.queue, &[*submit_info], vk::Fence::null())?; self.device.queue_wait_idle(self.queue)?; }
+        unsafe {
+            let ptr = self.device.map_memory(mem_out, 0, bytes, vk::MemoryMapFlags::empty())?;
+            std::ptr::copy_nonoverlapping(ptr as *const f32, x.as_mut_ptr(), x.len());
+            self.device.unmap_memory(mem_out);
+        }
+        unsafe {
+            self.device.free_command_buffers(self.cmd_pool, &[cmd]);
+            self.device.destroy_descriptor_pool(dpool, None);
+            self.device.destroy_descriptor_set_layout(dsl, None);
+            self.device.destroy_pipeline_layout(pipeline_layout, None);
+            self.device.destroy_pipeline(pipeline, None);
+            self.device.destroy_buffer(buf_in, None);
+            self.device.destroy_buffer(buf_out, None);
+            self.device.free_memory(mem_in, None);
+            self.device.free_memory(mem_out, None);
+        }
+        Ok(())
+    }
+
+    pub fn gelu(&mut self, rows: usize, cols: usize, x: &mut [f32]) -> Result<()> {
+        use std::fs::File;
+        use std::io::Read;
+        assert_eq!(x.len(), rows * cols);
+        let mut file = File::open("shaders/gelu.spv")?;
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes)?;
+        assert!(bytes.len() % 4 == 0);
+        let words = unsafe { std::slice::from_raw_parts(bytes.as_ptr() as *const u32, bytes.len() / 4) };
+        let sm_info = vk::ShaderModuleCreateInfo::builder().code(words);
+        let shader_module = unsafe { self.device.create_shader_module(&sm_info, None)? };
+        let binding0 = vk::DescriptorSetLayoutBinding { binding: 0, descriptor_type: vk::DescriptorType::STORAGE_BUFFER, descriptor_count: 1, stage_flags: vk::ShaderStageFlags::COMPUTE, p_immutable_samplers: std::ptr::null() };
+        let binding1 = vk::DescriptorSetLayoutBinding { binding: 1, descriptor_type: vk::DescriptorType::STORAGE_BUFFER, descriptor_count: 1, stage_flags: vk::ShaderStageFlags::COMPUTE, p_immutable_samplers: std::ptr::null() };
+        let bindings = [binding0, binding1];
+        let dsl_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
+        let dsl = unsafe { self.device.create_descriptor_set_layout(&dsl_info, None)? };
+        let pc_range = vk::PushConstantRange { stage_flags: vk::ShaderStageFlags::COMPUTE, offset: 0, size: 8 };
+        let set_layouts = [dsl];
+        let pl_info = vk::PipelineLayoutCreateInfo::builder().set_layouts(&set_layouts).push_constant_ranges(&[pc_range]);
+        let pipeline_layout = unsafe { self.device.create_pipeline_layout(&pl_info, None)? };
+        let entry_point = CString::new("main")?;
+        let stage_info = vk::PipelineShaderStageCreateInfo::builder().stage(vk::ShaderStageFlags::COMPUTE).module(shader_module).name(&entry_point);
+        let cp_info = vk::ComputePipelineCreateInfo::builder().stage(*stage_info).layout(pipeline_layout);
+        let pipeline = unsafe { self.device.create_compute_pipelines(vk::PipelineCache::null(), &[*cp_info], None) }.map_err(|e| anyhow::anyhow!("gelu pipeline create failed: {:?}", e))?[0];
+        unsafe { self.device.destroy_shader_module(shader_module, None) };
+        let bytes = (x.len() * 4) as u64;
+        let (buf_in, mem_in) = self.alloc_host_buffer(bytes)?;
+        let (buf_out, mem_out) = self.alloc_host_buffer(bytes)?;
+        self.write_buffer_pod(mem_in, x)?;
+        let pool_sizes = [vk::DescriptorPoolSize { ty: vk::DescriptorType::STORAGE_BUFFER, descriptor_count: 2 }];
+        let dp_info = vk::DescriptorPoolCreateInfo::builder().pool_sizes(&pool_sizes).max_sets(1);
+        let dpool = unsafe { self.device.create_descriptor_pool(&dp_info, None)? };
+        let set_layouts = [dsl];
+        let alloc_info = vk::DescriptorSetAllocateInfo::builder().descriptor_pool(dpool).set_layouts(&set_layouts);
+        let dset = unsafe { self.device.allocate_descriptor_sets(&alloc_info)? }[0];
+        let infos = [vk::DescriptorBufferInfo { buffer: buf_in, offset: 0, range: bytes }, vk::DescriptorBufferInfo { buffer: buf_out, offset: 0, range: bytes }];
+        let writes = [vk::WriteDescriptorSet { dst_set: dset, dst_binding: 0, descriptor_count: 1, descriptor_type: vk::DescriptorType::STORAGE_BUFFER, p_buffer_info: &infos[0], ..Default::default() }, vk::WriteDescriptorSet { dst_set: dset, dst_binding: 1, descriptor_count: 1, descriptor_type: vk::DescriptorType::STORAGE_BUFFER, p_buffer_info: &infos[1], ..Default::default() }];
+        unsafe { self.device.update_descriptor_sets(&writes, &[]) };
+        let alloc = vk::CommandBufferAllocateInfo::builder().command_pool(self.cmd_pool).level(vk::CommandBufferLevel::PRIMARY).command_buffer_count(1);
+        let cmd = unsafe { self.device.allocate_command_buffers(&alloc)? }[0];
+        let begin = vk::CommandBufferBeginInfo::builder();
+        let pc_data = [rows as u32, cols as u32];
+        unsafe {
+            self.device.begin_command_buffer(cmd, &begin)?;
+            self.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, pipeline);
+            self.device.cmd_bind_descriptor_sets(cmd, vk::PipelineBindPoint::COMPUTE, pipeline_layout, 0, &[dset], &[]);
+            self.device.cmd_push_constants(cmd, pipeline_layout, vk::ShaderStageFlags::COMPUTE, 0, bytemuck::bytes_of(&pc_data));
+            let total = (rows * cols) as u32;
+            let gx = (total + 255) / 256;
+            self.device.cmd_dispatch(cmd, gx, 1, 1);
+            self.device.end_command_buffer(cmd)?;
+        }
+        let cmd_bufs = [cmd];
+        let submit_info = vk::SubmitInfo::builder().command_buffers(&cmd_bufs);
+        unsafe { self.device.queue_submit(self.queue, &[*submit_info], vk::Fence::null())?; self.device.queue_wait_idle(self.queue)?; }
+        unsafe {
+            let ptr = self.device.map_memory(mem_out, 0, bytes, vk::MemoryMapFlags::empty())?;
+            std::ptr::copy_nonoverlapping(ptr as *const f32, x.as_mut_ptr(), x.len());
+            self.device.unmap_memory(mem_out);
+        }
+        unsafe {
+            self.device.free_command_buffers(self.cmd_pool, &[cmd]);
+            self.device.destroy_descriptor_pool(dpool, None);
+            self.device.destroy_descriptor_set_layout(dsl, None);
+            self.device.destroy_pipeline_layout(pipeline_layout, None);
+            self.device.destroy_pipeline(pipeline, None);
+            self.device.destroy_buffer(buf_in, None);
+            self.device.destroy_buffer(buf_out, None);
+            self.device.free_memory(mem_in, None);
+            self.device.free_memory(mem_out, None);
+        }
+        Ok(())
+    }
+}
